@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: -10,
-    backgroundColor: '#4caf50', // Verde para indicar "Adicionar"
+    backgroundColor: '#4caf50', 
     padding: 8,
     borderRadius: 20,
     borderWidth: 3,

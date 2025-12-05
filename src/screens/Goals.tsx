@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: -10,
-    backgroundColor: '#26c6da', // Um ciano para diferenciar
+    backgroundColor: '#26c6da', 
     padding: 8,
     borderRadius: 20,
     borderWidth: 3,

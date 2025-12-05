@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: -10,
-    backgroundColor: '#9c27b0', // Um roxo mais escuro/mageta
+    backgroundColor: '#9c27b0', 
     padding: 8,
     borderRadius: 20,
     borderWidth: 3,

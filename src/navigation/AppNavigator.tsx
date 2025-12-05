@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Telas
+
 import Home from '../screens/Home';
 import Wallet from '../screens/Wallet'; 
 import Goals from '../screens/Goals';   
@@ -13,7 +13,7 @@ import AddTransaction from '../screens/AddTransaction'
 
 const Tab = createBottomTabNavigator();
 
-// 👇 CORREÇÃO 1: Adicionei justifyContent e alignItems na View roxa
+
 const CustomTabBarButton = ({ children, onPress }: any) => (
   <TouchableOpacity
     style={{
@@ -29,8 +29,8 @@ const CustomTabBarButton = ({ children, onPress }: any) => (
       height: 70,
       borderRadius: 35,
       backgroundColor: '#6200ee',
-      justifyContent: 'center', // Centraliza Verticalmente
-      alignItems: 'center'      // Centraliza Horizontalmente
+      justifyContent: 'center', 
+      alignItems: 'center'      
     }}>
       {children}
     </View>
@@ -72,8 +72,7 @@ export default function AppNavigator() {
           )
         }}/>
 
-        {/* 👇 CORREÇÃO 2: Removi a <View style={{top: 10}}> daqui. 
-            O ícone precisa estar "limpo" para ser centralizado pela bolinha. */}
+        
         <Tab.Screen name="Adicionar" component={AddTransaction} options={{
           tabBarIcon: ({ focused }) => (
             <Ionicons name="add" size={40} color="#FFF" />

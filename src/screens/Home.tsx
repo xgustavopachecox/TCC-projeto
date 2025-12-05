@@ -10,17 +10,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Tipagem simples para nossas transações fictícias
+
 type Transaction = {
   id: string;
   title: string;
-  type: 'up' | 'down'; // up = receita, down = despesa
+  type: 'up' | 'down'; 
   amount: string;
   category: string;
   date: string;
 };
 
-// Dados fictícios para visualizar a lista
 const RECENT_TRANSACTIONS: Transaction[] = [
   { id: '1', title: 'Salário Mensal', type: 'up', amount: 'R$ 5.000,00', category: 'Trabalho', date: '05 Nov' },
   { id: '2', title: 'Supermercado', type: 'down', amount: 'R$ 450,00', category: 'Alimentação', date: '07 Nov' },
@@ -55,7 +54,7 @@ export default function Home() {
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }} // Espaço extra p/ não cobrir o menu
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
         
         {/* CARD DE SALDO PRINCIPAL */}
@@ -95,7 +94,7 @@ export default function Home() {
           </View>
         </View>
 
-        {/* ÁREA DO GRÁFICO (Placeholder Visual) */}
+        {/* ÁREA DO GRÁFICO */}
         <Text style={styles.sectionTitle}>Análise Mensal</Text>
         <View style={styles.chartCard}>
           <View style={styles.chartCircle}>
@@ -161,7 +160,7 @@ const styles = StyleSheet.create({
   // Header Roxo
   header: {
     backgroundColor: '#6200ee',
-    height: 180, // Altura fixa para criar o fundo
+    height: 180, 
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingTop: 60,
@@ -181,10 +180,9 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 50, height: 50, borderRadius: 25 },
 
-  // ScrollView
-  content: { flex: 1, paddingHorizontal: 20, marginTop: -60 }, // Sobe por cima do header
 
-  // Card de Saldo
+  content: { flex: 1, paddingHorizontal: 20, marginTop: -60 }, 
+
   balanceCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,
@@ -280,7 +278,7 @@ const styles = StyleSheet.create({
   transactionCategory: { color: '#999', fontSize: 12, marginTop: 2 },
   transactionAmount: { fontWeight: 'bold', fontSize: 15 },
 
-  fabContainer: { // O nome do estilo do seu botão redondo
+  fabContainer: { 
     position: 'absolute',
     bottom: 30,
     right: 30,
@@ -288,14 +286,12 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: '#IssoÉUmaCor',
-
-    // 👇 ADICIONE ESTAS DUAS LINHAS AQUI 👇
     justifyContent: 'center',
     alignItems: 'center',
-    // 👆 ------------------------------- 👆
+
     
-    elevation: 5, // Sombra no Android
-    shadowColor: '#000', // Sombra no iOS
+    elevation: 5, 
+    shadowColor: '#000', 
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
