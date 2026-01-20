@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { 
   View, 
   Text, 
@@ -28,6 +29,7 @@ const RECENT_TRANSACTIONS: Transaction[] = [
 ];
 
 export default function Home() {
+  const navigation = useNavigation<any>();
   const [currentMonth, setCurrentMonth] = useState('NOV/2025');
 
   return (
@@ -120,7 +122,7 @@ export default function Home() {
         {/* LISTA DE TRANSAÇÕES RECENTES */}
         <View style={styles.recentHeader}>
           <Text style={styles.sectionTitle}>Recentes</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Extrato')}>
             <Text style={styles.seeAll}>Ver tudo</Text>
           </TouchableOpacity>
         </View>
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
   // Header Roxo
   header: {
     backgroundColor: '#6200ee',
-    height: 180, 
+    height: 130, 
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingTop: 60,
@@ -181,7 +183,7 @@ const styles = StyleSheet.create({
   avatar: { width: 50, height: 50, borderRadius: 25 },
 
 
-  content: { flex: 1, paddingHorizontal: 20, marginTop: -60 }, 
+  content: { flex: 1, paddingHorizontal: 20, marginTop: 20 }, 
 
   balanceCard: {
     backgroundColor: '#FFF',
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   seeAll: { color: '#6200ee', fontWeight: 'bold' },
   transactionItem: {
     backgroundColor: '#FFF',
-    padding: 15,
+    padding: 10,
     borderRadius: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
