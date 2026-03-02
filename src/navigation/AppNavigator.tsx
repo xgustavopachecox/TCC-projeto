@@ -17,7 +17,6 @@ const Tab = createBottomTabNavigator();
 const CustomTabBarButton = ({ children, onPress }: any) => (
   <TouchableOpacity
     style={{
-      top: -30,
       justifyContent: 'center',
       alignItems: 'center',
       ...styles.shadow
@@ -46,7 +45,7 @@ export default function AppNavigator() {
           tabBarShowLabel: false,
           tabBarStyle: { 
             position: 'absolute',
-            bottom: 25,
+            bottom: 0,
             left: 20,
             right: 20,
             backgroundColor: '#ffffff',
@@ -73,14 +72,20 @@ export default function AppNavigator() {
         }}/>
 
         
-        <Tab.Screen name="Adicionar" component={AddTransaction} options={{
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="add" size={40} color="#FFF" />
-          ),
-          tabBarButton: (props) => (
-            <CustomTabBarButton {...props} />
-          )
-        }}/>
+        <Tab.Screen 
+          name="Adicionar" 
+          component={AddTransaction} 
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View>
+                <Ionicons name="add" size={30} color="#FFF" />
+              </View>
+            ),
+            tabBarButton: (props) => (
+              <CustomTabBarButton {...props} />
+            )
+          }}
+        />
 
         <Tab.Screen name="Cofrinhos" component={Goals} options={{
           tabBarIcon: ({ focused }) => (
