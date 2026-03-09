@@ -13,6 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+const hoje = new Date();
+const dia = String(hoje.getDate()).padStart(2, '0');
+const mes = String(hoje.getMonth() + 1).padStart(2, '0'); // Mês começa no 0
+const ano = hoje.getFullYear();
+const dataAtual = `${dia}/${mes}/${ano}`;
+
 // Categorias separadas por tipo
 const EXPENSE_CATEGORIES = [
   { id: 'e1', name: 'Alimentação', icon: 'fast-food-outline' },
@@ -44,7 +50,7 @@ export default function AddTransaction() {
   const [selectedCategory, setSelectedCategory] = useState('e1');
   
   // Estados da Data
-  const [dateText, setDateText] = useState('');
+  const [dateText, setDateText] = useState(dataAtual);
   const [dateObj, setDateObj] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
