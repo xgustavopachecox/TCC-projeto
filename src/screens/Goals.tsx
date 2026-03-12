@@ -8,11 +8,12 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Tipagem para os Cofrinhos (Objetivos)
+// Tipagem para os Cofrinhos
 type Goal = {
   id: string;
   title: string;
@@ -22,8 +23,8 @@ type Goal = {
   color: string;
 };
 
-// Dados de exemplo
-const GOALS: Goal[] = [
+// Dados Iniciais (agora serão guardados num estado para podermos editar/excluir)
+const INITIAL_GOALS: Goal[] = [
   { id: '1', title: 'Viagem a Paris', targetAmount: 15000, currentAmount: 4500, icon: 'airplane-outline', color: '#3498db' },
   { id: '2', title: 'Reserva de Emergência', targetAmount: 20000, currentAmount: 20000, icon: 'shield-checkmark-outline', color: '#27ae60' },
   { id: '3', title: 'Comprar Carro', targetAmount: 40000, currentAmount: 8500, icon: 'car-outline', color: '#e74c3c' },
@@ -33,18 +34,22 @@ const GOALS: Goal[] = [
 export default function Goals() {
   const PRIMARY_COLOR = '#6200ee';
 
-  // --- ESTADOS DO MODAL (GERIR COFRINHO) ---
-  const [modalVisible, setModalVisible] = useState(false);
+  // --- ESTADO PRINCIPAL DOS DADOS ---
+  const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
+
+  // --- ESTADOS DO MODAL DE DETALHES (GERIR DINHEIRO) ---
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [inputValue, setInputValue] = useState('');
 
-  // --- ESTADOS DO MODAL (CRIAR NOVO COFRINHO) ---
-  const [newGoalModalVisible, setNewGoalModalVisible] = useState(false);
-  const [newGoalTitle, setNewGoalTitle] = useState('');
-  const [newGoalAmount, setNewGoalAmount] = useState('');
+  // --- ESTADOS DO MODAL DE FORMULÁRIO (CRIAR/EDITAR) ---
+  const [formModalVisible, setFormModalVisible] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formAmount, setFormAmount] = useState('');
 
-  // Calcula o total guardado juntando todos os cofrinhos
-  const totalSaved = GOALS.reduce((acc, goal) => acc + goal.currentAmount, 0);
+  // Calcula o total guardado
+  const totalSaved = goals.reduce((acc, goal) => acc + goal.currentAmount, 0);
 
   // Formatar dinheiro (R$ 1.000,00)
   const formatCurrency = (val: number) => {
@@ -52,22 +57,27 @@ export default function Goals() {
     return 'R$ ' + value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
   };
 
-  // Lógica para abrir o modal de gestão
-  const openModal = (goal: Goal) => {
+  // Converte a string de dinheiro (1.500,00) para número (1500.00)
+  const parseCurrencyToNumber = (valStr: string) => {
+    return parseFloat(valStr.replace(/\./g, '').replace(',', '.')) || 0;
+  };
+
+  // =======================================================
+  // LÓGICA DO MODAL DE DETALHES (ADICIONAR/RETIRAR/EXCLUIR)
+  // =======================================================
+  const openGoalDetails = (goal: Goal) => {
     setActiveGoal(goal);
-    setInputValue(''); // Limpa o input sempre que abre
-    setModalVisible(true);
+    setInputValue(''); 
+    setDetailsModalVisible(true);
   };
 
-  // Lógica para fechar o modal de gestão
-  const closeModal = () => {
-    setModalVisible(false);
-    setTimeout(() => setActiveGoal(null), 300); // Aguarda a animação fechar para limpar
+  const closeGoalDetails = () => {
+    setDetailsModalVisible(false);
+    setTimeout(() => setActiveGoal(null), 300); 
   };
 
-  // Formatação do input (Máscara de dinheiro em tempo real)
   const handleAmountChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, ''); // Remove tudo que não for número
+    let cleaned = text.replace(/\D/g, ''); 
     if (cleaned === '') {
       setInputValue('');
       return;
@@ -78,43 +88,93 @@ export default function Goals() {
     setInputValue(value);
   };
 
-  // Ações dos botões do modal de gestão
+  // Adicionar e Retirar dinheiro (atualiza a lista em tempo real)
   const handleAddMoney = () => {
-    console.log(`Adicionar R$ ${inputValue} ao cofrinho: ${activeGoal?.title}`);
-    closeModal();
+    const val = parseCurrencyToNumber(inputValue);
+    if(val > 0 && activeGoal) {
+      setGoals(goals.map(g => g.id === activeGoal.id ? { ...g, currentAmount: g.currentAmount + val } : g));
+    }
+    closeGoalDetails();
   };
 
   const handleRemoveMoney = () => {
-    console.log(`Retirar R$ ${inputValue} do cofrinho: ${activeGoal?.title}`);
-    closeModal();
+    const val = parseCurrencyToNumber(inputValue);
+    if(val > 0 && activeGoal) {
+      // Impede que o valor fique negativo
+      const newAmount = Math.max(0, activeGoal.currentAmount - val);
+      setGoals(goals.map(g => g.id === activeGoal.id ? { ...g, currentAmount: newAmount } : g));
+    }
+    closeGoalDetails();
   };
 
-  // --- LÓGICA DO NOVO COFRINHO ---
-  const openNewGoalModal = () => {
-    setNewGoalTitle('');
-    setNewGoalAmount('');
-    setNewGoalModalVisible(true);
+  const handleDeleteGoal = () => {
+    if (activeGoal) {
+      setGoals(goals.filter(g => g.id !== activeGoal.id));
+      closeGoalDetails();
+    }
   };
 
-  const closeNewGoalModal = () => {
-    setNewGoalModalVisible(false);
+  const handleOpenEdit = () => {
+    if (activeGoal) {
+      setEditingGoalId(activeGoal.id);
+      setFormTitle(activeGoal.title);
+      
+      // Formata o valor atual da meta para aparecer certinho no input
+      let valString = activeGoal.targetAmount.toFixed(2).replace('.', ',');
+      valString = valString.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+      setFormAmount(valString);
+      
+      closeGoalDetails();
+      setTimeout(() => setFormModalVisible(true), 300); // Abre o formulário após fechar detalhes
+    }
   };
 
-  const handleNewGoalAmountChange = (text: string) => {
+  // =======================================================
+  // LÓGICA DO MODAL DE FORMULÁRIO (CRIAR E EDITAR META)
+  // =======================================================
+  const openGoalFormNew = () => {
+    setEditingGoalId(null);
+    setFormTitle('');
+    setFormAmount('');
+    setFormModalVisible(true);
+  };
+
+  const closeGoalForm = () => {
+    setFormModalVisible(false);
+  };
+
+  const handleFormAmountChange = (text: string) => {
     let cleaned = text.replace(/\D/g, '');
     if (cleaned === '') {
-      setNewGoalAmount('');
+      setFormAmount('');
       return;
     }
     let value = (parseInt(cleaned, 10) / 100).toFixed(2);
     value = value.replace('.', ',');
     value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
-    setNewGoalAmount(value);
+    setFormAmount(value);
   };
 
-  const handleCreateGoal = () => {
-    console.log(`Criar novo cofrinho: ${newGoalTitle} com meta de R$ ${newGoalAmount}`);
-    closeNewGoalModal();
+  const handleSaveGoal = () => {
+    const targetVal = parseCurrencyToNumber(formAmount);
+    if (!formTitle || targetVal <= 0) return; // Validação simples
+
+    if (editingGoalId) {
+      // Editar cofrinho existente
+      setGoals(goals.map(g => g.id === editingGoalId ? { ...g, title: formTitle, targetAmount: targetVal } : g));
+    } else {
+      // Criar novo cofrinho
+      const newGoal: Goal = {
+        id: Math.random().toString(), // Gera ID temporário
+        title: formTitle,
+        targetAmount: targetVal,
+        currentAmount: 0,
+        icon: 'star-outline', // Ícone padrão
+        color: PRIMARY_COLOR // Cor padrão
+      };
+      setGoals([...goals, newGoal]);
+    }
+    closeGoalForm();
   };
 
   return (
@@ -138,27 +198,31 @@ export default function Goals() {
               <Text style={styles.summaryLabel}>Total Guardado</Text>
             </View>
             <Text style={styles.summaryValue}>{formatCurrency(totalSaved)}</Text>
-            <Text style={styles.summarySubText}>Distribuído em {GOALS.length} cofrinhos</Text>
+            <Text style={styles.summarySubText}>Distribuído em {goals.length} cofrinhos</Text>
           </View>
 
           {/* LISTA DE COFRINHOS */}
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>Os Meus Objetivos</Text>
-            <TouchableOpacity onPress={openNewGoalModal}>
+            <TouchableOpacity onPress={openGoalFormNew}>
               <Ionicons name="add-circle" size={28} color={PRIMARY_COLOR} />
             </TouchableOpacity>
           </View>
 
-          {GOALS.map((goal) => {
+          {goals.length === 0 && (
+            <Text style={styles.emptyText}>Você ainda não tem cofrinhos criados.</Text>
+          )}
+
+          {goals.map((goal) => {
             const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-            const isCompleted = progress === 100;
+            const isCompleted = progress >= 100;
 
             return (
               <TouchableOpacity 
                 key={goal.id} 
                 style={styles.goalCard} 
                 activeOpacity={0.7}
-                onPress={() => openModal(goal)}
+                onPress={() => openGoalDetails(goal)}
               >
                 <View style={styles.goalHeader}>
                   <View style={styles.goalTitleContainer}>
@@ -172,7 +236,7 @@ export default function Goals() {
                   </Text>
                 </View>
 
-                {/* Barra de Progresso Personalizada */}
+                {/* Barra de Progresso */}
                 <View style={styles.progressBarBackground}>
                   <View 
                     style={[
@@ -202,18 +266,20 @@ export default function Goals() {
         </View>
       </ScrollView>
 
-      {/* --- MODAL (BOTTOM SHEET) PARA GERIR COFRINHO --- */}
+      {/* =================================================== */}
+      {/* 1. MODAL DE DETALHES (ADICIONAR/RETIRAR DINHEIRO) */}
+      {/* =================================================== */}
       <Modal
-        visible={modalVisible}
+        visible={detailsModalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={closeModal}
+        onRequestClose={closeGoalDetails}
       >
         <KeyboardAvoidingView 
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeGoalDetails} />
           
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
@@ -230,9 +296,17 @@ export default function Goals() {
                       <Text style={styles.modalGoalAmount}>{formatCurrency(activeGoal.currentAmount)} guardados</Text>
                     </View>
                   </View>
-                  <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                    <Ionicons name="close" size={24} color="#999" />
-                  </TouchableOpacity>
+                  
+                  {/* Ícones de Ação: Editar, Excluir e Fechar */}
+                  <View style={styles.modalHeaderActions}>
+                    <TouchableOpacity onPress={handleOpenEdit} style={styles.headerIconBtn}>
+                      <Ionicons name="pencil" size={22} color="#666" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleDeleteGoal} style={styles.headerIconBtn}>
+                      <Ionicons name="trash" size={22} color="#e74c3c" />
+                    </TouchableOpacity>
+          
+                  </View>
                 </View>
 
                 <Text style={styles.modalInputLabel}>Valor da operação</Text>
@@ -272,25 +346,29 @@ export default function Goals() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* --- MODAL PARA CRIAR NOVO COFRINHO --- */}
+      {/* =================================================== */}
+      {/* 2. MODAL DE FORMULÁRIO (CRIAR E EDITAR COFRINHO) */}
+      {/* =================================================== */}
       <Modal
-        visible={newGoalModalVisible}
+        visible={formModalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={closeNewGoalModal}
+        onRequestClose={closeGoalForm}
       >
         <KeyboardAvoidingView 
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeNewGoalModal} />
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeGoalForm} />
           
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
             
             <View style={styles.modalHeader}>
-              <Text style={styles.modalGoalTitle}>Criar Novo Cofrinho</Text>
-              <TouchableOpacity onPress={closeNewGoalModal} style={styles.closeButton}>
+              <Text style={styles.modalGoalTitle}>
+                {editingGoalId ? 'Editar Cofrinho' : 'Criar Novo Cofrinho'}
+              </Text>
+              <TouchableOpacity onPress={closeGoalForm} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color="#999" />
               </TouchableOpacity>
             </View>
@@ -300,8 +378,8 @@ export default function Goals() {
               style={styles.textInputFull}
               placeholder="Ex: Viagem, Carro Novo..."
               placeholderTextColor="#A0A0A0"
-              value={newGoalTitle}
-              onChangeText={setNewGoalTitle}
+              value={formTitle}
+              onChangeText={setFormTitle}
             />
 
             <Text style={styles.inputLabelLeft}>Valor da Meta</Text>
@@ -312,17 +390,19 @@ export default function Goals() {
                 placeholder="0,00"
                 placeholderTextColor="#A0A0A0"
                 keyboardType="numeric"
-                value={newGoalAmount}
-                onChangeText={handleNewGoalAmountChange}
+                value={formAmount}
+                onChangeText={handleFormAmountChange}
               />
             </View>
 
             <TouchableOpacity 
-              style={[styles.actionBtn, styles.addBtn, { backgroundColor: PRIMARY_COLOR, width: '100%' }]}
-              onPress={handleCreateGoal}
+              style={[styles.createGoalBtn, { backgroundColor: PRIMARY_COLOR }]}
+              onPress={handleSaveGoal}
             >
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-              <Text style={styles.addBtnText}>Criar Objetivo</Text>
+              <Ionicons name={editingGoalId ? "save-outline" : "checkmark-circle-outline"} size={20} color="#FFF" />
+              <Text style={styles.createGoalBtnText}>
+                {editingGoalId ? 'Guardar Alterações' : 'Criar Objetivo'}
+              </Text>
             </TouchableOpacity>
 
           </View>
@@ -351,13 +431,14 @@ const styles = StyleSheet.create({
 
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  emptyText: { textAlign: 'center', color: '#999', marginTop: 20, fontStyle: 'italic' },
 
   goalCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 5 },
   goalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  goalTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  goalTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   goalIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  goalTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  percentageText: { fontSize: 16, fontWeight: 'bold' },
+  goalTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', flexShrink: 1 },
+  percentageText: { fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
 
   progressBarBackground: { height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden', marginBottom: 12 },
   progressBarFill: { height: '100%', borderRadius: 4 },
@@ -382,6 +463,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     minHeight: 300,
     elevation: 10,
     shadowColor: '#000',
@@ -407,6 +489,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 15,
+    flex: 1,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15, // Espaço entre os ícones de ação no topo direito
+  },
+  headerIconBtn: {
+    padding: 4,
   },
   modalGoalTitle: {
     fontSize: 18,
@@ -456,7 +547,7 @@ const styles = StyleSheet.create({
     marginBottom: Platform.OS === 'ios' ? 20 : 0,
   },
   actionBtn: {
-    flex: 1,
+    flex: 1, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -480,7 +571,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 5,
-    paddingTop: 20,
   },
   addBtnText: {
     color: '#FFF',
@@ -507,5 +597,25 @@ const styles = StyleSheet.create({
     color: '#333',
     width: '100%',
     marginBottom: 20,
+  },
+  createGoalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 15,
+    width: '100%',
+    marginTop: 10,
+    elevation: 2,
+    shadowColor: '#6200ee',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 5,
+  },
+  createGoalBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
