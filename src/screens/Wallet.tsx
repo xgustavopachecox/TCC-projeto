@@ -49,26 +49,34 @@ export default function Wallet({ route, navigation }: any) {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   // =========================================================
-  // ADICIONADO: Lógica para escutar a chegada de novos dados
+  // ADICIONADO: Lógica para escutar eventos de navegação
   // =========================================================
   useEffect(() => {
-    // Se a navegação enviou o pacote "novaTransacao"
+    // 1. Receber e adicionar NOVA TRANSAÇÃO
     if (route?.params?.novaTransacao) {
       const novaTx = route.params.novaTransacao;
       
       setTransactions(prevTransactions => {
-        // Verifica se a transação já está na lista para não duplicar
         const jaExiste = prevTransactions.find(t => t.id === novaTx.id);
         if (jaExiste) return prevTransactions;
-        
-        // Adiciona a nova transação no topo da lista
         return [novaTx, ...prevTransactions];
       });
 
-      // Limpa o parâmetro da rota para que não seja adicionado de novo ao voltar à tela
       navigation.setParams({ novaTransacao: undefined });
     }
-  }, [route?.params?.novaTransacao]);
+
+    // 2. ABRIR MODAL AUTOMATICAMENTE (Vindo da Home)
+    if (route?.params?.openTransaction) {
+      const txToOpen = route.params.openTransaction;
+      
+      // Define a transação selecionada e abre o modal imediatamente
+      setSelectedTx(txToOpen);
+      setModalVisible(true);
+
+      // Limpa o parâmetro para não ficar abrindo sozinho ao voltar pra aba
+      navigation.setParams({ openTransaction: undefined });
+    }
+  }, [route?.params?.novaTransacao, route?.params?.openTransaction]);
   // =========================================================
 
   // Filtragem da lista

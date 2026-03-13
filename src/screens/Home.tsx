@@ -7,10 +7,10 @@ import {
   ScrollView, 
   TouchableOpacity, 
   Image, 
-  Dimensions 
+  Modal,
+  Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
 
 type Transaction = {
   id: string;
@@ -19,18 +19,50 @@ type Transaction = {
   amount: string;
   category: string;
   date: string;
+  time: string;
+  description: string;
 };
 
-const RECENT_TRANSACTIONS: Transaction[] = [
-  { id: '1', title: 'Salário Mensal', type: 'up', amount: 'R$ 5.000,00', category: 'Trabalho', date: '05 Nov' },
-  { id: '2', title: 'Supermercado', type: 'down', amount: 'R$ 450,00', category: 'Alimentação', date: '07 Nov' },
-  { id: '3', title: 'Netflix', type: 'down', amount: 'R$ 55,90', category: 'Lazer', date: '10 Nov' },
-  { id: '4', title: 'Freelance', type: 'up', amount: 'R$ 800,00', category: 'Extra', date: '12 Nov' },
+// Dados Iniciais
+const INITIAL_TRANSACTIONS: Transaction[] = [
+  { id: '1', title: 'Salário Mensal', type: 'up', amount: '5.000,00', category: 'Trabalho', date: '05 Nov', time: '09:00', description: 'Pagamento de salário.' },
+  { id: '2', title: 'Supermercado', type: 'down', amount: '450,00', category: 'Alimentação', date: '07 Nov', time: '18:30', description: 'Compras no supermercado.' },
+  { id: '3', title: 'Netflix', type: 'down', amount: '55,90', category: 'Lazer', date: '10 Nov', time: '10:15', description: 'Assinatura mensal.' },
+  { id: '4', title: 'Freelance', type: 'up', amount: '800,00', category: 'Extra', date: '12 Nov', time: '14:00', description: 'Serviço prestado.' },
 ];
 
 export default function Home() {
   const navigation = useNavigation<any>();
   const [currentMonth, setCurrentMonth] = useState('NOV/2025');
+
+  // Estados para as Transações Recentes e Modal
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  // Cores consistentes
+  const GREEN_COLOR = '#27ae60';
+  const RED_COLOR = '#e74c3c';
+
+  // ==========================================
+  // FUNÇÕES DO MODAL
+  // ==========================================
+  const openDetails = (tx: Transaction) => {
+    setSelectedTx(tx);
+    setModalVisible(true);
+  };
+
+  const closeDetails = () => {
+    setModalVisible(false);
+    setTimeout(() => setSelectedTx(null), 300);
+  };
+
+  const handleDeleteTransaction = () => {
+    if (selectedTx) {
+      setRecentTransactions(prev => prev.filter(t => t.id !== selectedTx.id));
+      closeDetails();
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -127,14 +159,22 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {RECENT_TRANSACTIONS.map((item) => (
-          <View key={item.id} style={styles.transactionItem}>
+        {recentTransactions.map((item) => (
+          <TouchableOpacity 
+            key={item.id} 
+            style={styles.transactionItem}
+            activeOpacity={0.7}
+            onPress={() => openDetails(item)} // ABRE O MODAL DIRETAMENTE AQUI
+          >
             <View style={styles.transactionLeft}>
-              <View style={styles.categoryIcon}>
+              <View style={[
+                styles.categoryIcon, 
+                { backgroundColor: item.type === 'up' ? '#e8f5e9' : '#ffebee' }
+              ]}>
                 <Ionicons 
-                  name={item.type === 'up' ? "cash-outline" : "cart-outline"} 
+                  name={item.type === 'up' ? "arrow-up" : "arrow-down"} 
                   size={20} 
-                  color="#555" 
+                  color={item.type === 'up' ? GREEN_COLOR : RED_COLOR} 
                 />
               </View>
               <View>
@@ -144,14 +184,105 @@ export default function Home() {
             </View>
             <Text style={[
               styles.transactionAmount, 
-              { color: item.type === 'up' ? '#27ae60' : '#e74c3c' }
+              { color: item.type === 'up' ? GREEN_COLOR : RED_COLOR }
             ]}>
-              {item.type === 'up' ? '+' : '-'}{item.amount}
+              {item.type === 'up' ? '+ R$ ' : '- R$ '}{item.amount}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
 
       </ScrollView>
+
+      {/* =================================================== */}
+      {/* MODAL DE DETALHES DA TRANSAÇÃO (Direto na Home) */}
+      {/* =================================================== */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeDetails}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDetails} />
+          
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+
+            {selectedTx && (
+              <>
+                {/* Cabeçalho do Modal */}
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalTxInfo}>
+                    <View style={[
+                      styles.modalIconBg, 
+                      { backgroundColor: selectedTx.type === 'up' ? '#e8f5e9' : '#ffebee' }
+                    ]}>
+                      <Ionicons 
+                        name={selectedTx.type === 'up' ? "arrow-up" : "arrow-down"} 
+                        size={28} 
+                        color={selectedTx.type === 'up' ? GREEN_COLOR : RED_COLOR} 
+                      />
+                    </View>
+                    <Text style={styles.modalTxTitle}>{selectedTx.title}</Text>
+                  </View>
+                  <TouchableOpacity onPress={closeDetails} style={styles.closeButton}>
+                    <Ionicons name="close" size={24} color="#999" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Valor em Destaque */}
+                <View style={styles.modalAmountContainer}>
+                  <Text style={[
+                    styles.modalBigAmount,
+                    { color: selectedTx.type === 'up' ? GREEN_COLOR : RED_COLOR }
+                  ]}>
+                    {selectedTx.type === 'up' ? '+ R$ ' : '- R$ '}{selectedTx.amount}
+                  </Text>
+                  <Text style={styles.modalStatusText}>
+                    <Ionicons name="checkmark-circle" size={14} color={GREEN_COLOR} /> Concluído
+                  </Text>
+                </View>
+
+                {/* Lista de Detalhes */}
+                <View style={styles.detailsBox}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Categoria</Text>
+                    <Text style={styles.detailValue}>{selectedTx.category}</Text>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Data</Text>
+                    <Text style={styles.detailValue}>{selectedTx.date}</Text>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Hora</Text>
+                    <Text style={styles.detailValue}>{selectedTx.time}</Text>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Descrição</Text>
+                    <Text style={styles.detailValueDesc}>{selectedTx.description}</Text>
+                  </View>
+                </View>
+
+                {/* Botão de Excluir */}
+                <TouchableOpacity 
+                  style={styles.deleteBtn}
+                  onPress={handleDeleteTransaction}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                  <Text style={styles.deleteBtnText}>Excluir Transação</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -181,7 +312,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
   },
   avatar: { width: 50, height: 50, borderRadius: 25 },
-
 
   content: { flex: 1, paddingHorizontal: 20, marginTop: 20 }, 
 
@@ -224,10 +354,8 @@ const styles = StyleSheet.create({
   summaryValueUp: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   summaryValueDown: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 
-  // Seções e Títulos
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   
-  // Placeholder do Gráfico
   chartCard: {
     backgroundColor: '#FFF',
     padding: 20,
@@ -254,24 +382,26 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 14, color: '#555' },
 
-  // Lista de Transações
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   seeAll: { color: '#6200ee', fontWeight: 'bold' },
   transactionItem: {
     backgroundColor: '#FFF',
-    padding: 10,
+    padding: 15,
     borderRadius: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
     elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   categoryIcon: {
     width: 45,
     height: 45,
-    backgroundColor: '#F0F2F5',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -280,22 +410,131 @@ const styles = StyleSheet.create({
   transactionCategory: { color: '#999', fontSize: 12, marginTop: 2 },
   transactionAmount: { fontWeight: 'bold', fontSize: 15 },
 
-  fabContainer: { 
-    position: 'absolute',
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#IssoÉUmaCor',
+  // --- ESTILOS DO MODAL ---
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#F8F9FA',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    minHeight: 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: -5 },
+    shadowRadius: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#D1D1D1',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTxInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    flex: 1,
+  },
+  modalIconBg: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalTxTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    flexShrink: 1,
+  },
+  closeButton: { padding: 5 },
+  
+  modalAmountContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  modalBigAmount: {
+    fontSize: 38,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  modalStatusText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    
-    elevation: 5, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  detailsBox: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+  },
+  detailLabel: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
+  },
+  detailValueDesc: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 20,
+  },
+
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 15,
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  deleteBtnText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
