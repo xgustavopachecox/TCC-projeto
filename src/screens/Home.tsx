@@ -23,7 +23,7 @@ type Transaction = {
   description: string;
 };
 
-// Dados Iniciais
+// Dados Iniciais das Transações
 const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: '1', title: 'Salário Mensal', type: 'up', amount: '5.000,00', category: 'Trabalho', date: '05 Nov', time: '09:00', description: 'Pagamento de salário.' },
   { id: '2', title: 'Supermercado', type: 'down', amount: '450,00', category: 'Alimentação', date: '07 Nov', time: '18:30', description: 'Compras no supermercado.' },
@@ -31,21 +31,32 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: '4', title: 'Freelance', type: 'up', amount: '800,00', category: 'Extra', date: '12 Nov', time: '14:00', description: 'Serviço prestado.' },
 ];
 
+// Dados Falsos para a Análise Mensal
+const MONTHLY_STATS = [
+  { id: 's1', name: 'Essenciais', icon: 'home', color: '#6200ee', percentage: 50, amount: '1.175,00' },
+  { id: 's2', name: 'Lazer', icon: 'game-controller', color: '#ffb74d', percentage: 30, amount: '705,00' },
+  { id: 's3', name: 'Investimentos', icon: 'trending-up', color: '#26c6da', percentage: 20, amount: '470,00' },
+];
+
 export default function Home() {
   const navigation = useNavigation<any>();
   const [currentMonth, setCurrentMonth] = useState('NOV/2025');
 
-  // Estados para as Transações Recentes e Modal
+  // Estados para as Transações Recentes e Modais
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  
+  // NOVO: Estado para o Modal de Análise
+  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
 
   // Cores consistentes
+  const PRIMARY_COLOR = '#6200ee';
   const GREEN_COLOR = '#27ae60';
   const RED_COLOR = '#e74c3c';
 
   // ==========================================
-  // FUNÇÕES DO MODAL
+  // FUNÇÕES DO MODAL DE TRANSAÇÃO
   // ==========================================
   const openDetails = (tx: Transaction) => {
     setSelectedTx(tx);
@@ -128,9 +139,13 @@ export default function Home() {
           </View>
         </View>
 
-        {/* ÁREA DO GRÁFICO */}
+        {/* ÁREA DO GRÁFICO (AGORA É CLICÁVEL!) */}
         <Text style={styles.sectionTitle}>Análise Mensal</Text>
-        <View style={styles.chartCard}>
+        <TouchableOpacity 
+          style={styles.chartCard} 
+          activeOpacity={0.8}
+          onPress={() => setAnalysisModalVisible(true)} // ABRE O NOVO MODAL
+        >
           <View style={styles.chartCircle}>
             <Text style={styles.chartPercent}>65%</Text>
             <Text style={styles.chartLabel}>Gastos</Text>
@@ -149,7 +164,8 @@ export default function Home() {
                <Text style={styles.legendText}>Investimentos</Text>
              </View>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" style={styles.chartArrow} />
+        </TouchableOpacity>
 
         {/* LISTA DE TRANSAÇÕES RECENTES */}
         <View style={styles.recentHeader}>
@@ -164,7 +180,7 @@ export default function Home() {
             key={item.id} 
             style={styles.transactionItem}
             activeOpacity={0.7}
-            onPress={() => openDetails(item)} // ABRE O MODAL DIRETAMENTE AQUI
+            onPress={() => openDetails(item)}
           >
             <View style={styles.transactionLeft}>
               <View style={[
@@ -194,7 +210,69 @@ export default function Home() {
       </ScrollView>
 
       {/* =================================================== */}
-      {/* MODAL DE DETALHES DA TRANSAÇÃO (Direto na Home) */}
+      {/* 1. MODAL DE ANÁLISE DE GASTOS (NOVIDADE)            */}
+      {/* =================================================== */}
+      <Modal
+        visible={analysisModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAnalysisModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setAnalysisModalVisible(false)} />
+          
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTxTitle}>Detalhamento de Gastos</Text>
+              <TouchableOpacity onPress={() => setAnalysisModalVisible(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.analysisSubtitle}>
+              Este mês, você já gastou <Text style={{fontWeight: 'bold', color: RED_COLOR}}>65%</Text> da sua receita total. Veja onde o seu dinheiro foi parar:
+            </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 10 }}>
+              {MONTHLY_STATS.map((stat) => (
+                <View key={stat.id} style={styles.statCard}>
+                  <View style={styles.statHeader}>
+                    <View style={styles.statTitleGroup}>
+                      <View style={[styles.statIconBg, { backgroundColor: stat.color + '20' }]}>
+                        <Ionicons name={stat.icon as any} size={18} color={stat.color} />
+                      </View>
+                      <Text style={styles.statName}>{stat.name}</Text>
+                    </View>
+                    <Text style={styles.statAmount}>R$ {stat.amount}</Text>
+                  </View>
+                  
+                  <View style={styles.progressBarBg}>
+                    <View style={[
+                      styles.progressBarFill, 
+                      { width: `${stat.percentage}%`, backgroundColor: stat.color }
+                    ]} />
+                  </View>
+                  <Text style={styles.statPercentageText}>{stat.percentage}% das despesas</Text>
+                </View>
+              ))}
+
+              <View style={styles.insightBox}>
+                <Ionicons name="bulb-outline" size={24} color="#f1c40f" />
+                <Text style={styles.insightText}>
+                  <Text style={{fontWeight: 'bold'}}>Dica: </Text>
+                  Seus gastos com Lazer subiram 10% em relação ao mês passado. Tente controlar as assinaturas!
+                </Text>
+              </View>
+            </ScrollView>
+
+          </View>
+        </View>
+      </Modal>
+
+      {/* =================================================== */}
+      {/* 2. MODAL DE DETALHES DA TRANSAÇÃO                   */}
       {/* =================================================== */}
       <Modal
         visible={modalVisible}
@@ -210,7 +288,6 @@ export default function Home() {
 
             {selectedTx && (
               <>
-                {/* Cabeçalho do Modal */}
                 <View style={styles.modalHeader}>
                   <View style={styles.modalTxInfo}>
                     <View style={[
@@ -230,7 +307,6 @@ export default function Home() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Valor em Destaque */}
                 <View style={styles.modalAmountContainer}>
                   <Text style={[
                     styles.modalBigAmount,
@@ -243,7 +319,6 @@ export default function Home() {
                   </Text>
                 </View>
 
-                {/* Lista de Detalhes */}
                 <View style={styles.detailsBox}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Categoria</Text>
@@ -269,7 +344,6 @@ export default function Home() {
                   </View>
                 </View>
 
-                {/* Botão de Excluir */}
                 <TouchableOpacity 
                   style={styles.deleteBtn}
                   onPress={handleDeleteTransaction}
@@ -290,7 +364,6 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F4F7' },
   
-  // Header Roxo
   header: {
     backgroundColor: '#6200ee',
     height: 130, 
@@ -363,7 +436,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between', // Ajustado para a seta caber
     elevation: 2,
   },
   chartCircle: {
@@ -377,10 +450,11 @@ const styles = StyleSheet.create({
   },
   chartPercent: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   chartLabel: { fontSize: 10, color: '#888' },
-  chartLegend: { gap: 8 },
+  chartLegend: { gap: 8, flex: 1, marginLeft: 20 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 14, color: '#555' },
+  chartArrow: { opacity: 0.5 },
 
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   seeAll: { color: '#6200ee', fontWeight: 'bold' },
@@ -410,7 +484,7 @@ const styles = StyleSheet.create({
   transactionCategory: { color: '#999', fontSize: 12, marginTop: 2 },
   transactionAmount: { fontWeight: 'bold', fontSize: 15 },
 
-  // --- ESTILOS DO MODAL ---
+  // --- ESTILOS DOS MODAIS ---
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -426,6 +500,7 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     minHeight: 400,
+    maxHeight: '80%', // Limite para scrollar se tiver muita coisa
     elevation: 10,
     shadowColor: '#000',
     shadowOpacity: 0.2,
@@ -537,4 +612,80 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+
+  // --- ESTILOS DA ANÁLISE ---
+  analysisSubtitle: {
+    fontSize: 15,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 15,
+  },
+  statCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  statAmount: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  statPercentageText: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'right',
+  },
+  insightBox: {
+    flexDirection: 'row',
+    backgroundColor: '#fff9c4',
+    padding: 15,
+    borderRadius: 15,
+    marginTop: 10,
+    marginBottom: 20,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#827717',
+    lineHeight: 20,
+  }
 });
