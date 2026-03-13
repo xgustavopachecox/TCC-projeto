@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -112,8 +113,48 @@ export default function AddTransaction() {
   };
 
   const handleSave = () => {
-    console.log({ type, amount, title, selectedCategory, date: dateText });
-    navigation.navigate('Início');
+    if (!title || !amount || amount === '0,00') {
+      Alert.alert('Atenção', 'Por favor, preencha a descrição e o valor.');
+      return;
+    }
+
+    // Apanhar o nome real da categoria selecionada
+    const catObj = currentCategories.find(c => c.id === selectedCategory);
+    const categoryName = catObj ? catObj.name : 'Outros';
+
+    const today = new Date();
+    const timeString = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+
+    // Construir o objeto da nova transação
+    const newTx = {
+      id: Math.random().toString(36).substring(7),
+      title: title, 
+      type: type,
+      amount: amount,
+      category: categoryName,
+      date: dateText,
+      time: timeString,
+      description: title
+    };
+
+    Alert.alert(
+      'Sucesso!', 
+      'Transação adicionada com sucesso.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Limpa o formulário
+            setAmount('');
+            setTitle('');
+            setDateText(dataAtual);
+            
+            // Navega para o Extrato ENVIANDO a nova transação
+            navigation.navigate('Extrato', { novaTransacao: newTx });
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -135,7 +176,7 @@ export default function AddTransaction() {
         <View style={styles.bodyContent}>
           <View style={styles.card}>
             
-            {/* Seletor de Tipo (Apenas estes ficam Verde/Vermelho) */}
+            {/* Seletor de Tipo */}
             <View style={styles.typeContainer}>
               <TouchableOpacity 
                 style={[styles.typeButton, type === 'up' && styles.typeButtonActiveUp]}
@@ -154,54 +195,7 @@ export default function AddTransaction() {
               </TouchableOpacity>
             </View>
 
-            {/* Valor (Com máscara e cor principal) */}
-            <View style={styles.amountContainer}>
-              <Text style={[styles.currencySymbol, { color: PRIMARY_COLOR }]}>R$</Text>
-              <TextInput 
-                style={[styles.amountInput, { color: PRIMARY_COLOR }]}
-                placeholder="0,00"
-                placeholderTextColor="#A0A0A0"
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={handleAmountChange}
-              />
-            </View>
-
-            {/* Descrição */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Descrição</Text>
-              <TextInput 
-                style={styles.textInput}
-                placeholder={type === 'up' ? "Ex: Salário, Pix..." : "Ex: Supermercado, Uber..."}
-                placeholderTextColor="#A0A0A0"
-                value={title}
-                onChangeText={setTitle}
-              />
-            </View>
-
-            {/* Data (Com máscara e Calendário) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Data</Text>
-              <View style={styles.dateInputContainer}>
-                <TextInput 
-                  style={styles.dateInput}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#A0A0A0"
-                  keyboardType="numeric"
-                  value={dateText}
-                  onChangeText={handleDateTextChange}
-                  maxLength={10}
-                />
-                <TouchableOpacity 
-                  style={styles.calendarButton} 
-                  onPress={() => setShowPicker(true)}
-                >
-                  <Ionicons name="calendar" size={24} color={PRIMARY_COLOR} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Seletor de Categorias (Dinâmico) */}
+            {/* 1. Categoria */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Categoria</Text>
               <ScrollView 
@@ -232,6 +226,56 @@ export default function AddTransaction() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            </View>
+
+            {/* 2. Descrição */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Descrição</Text>
+              <TextInput 
+                style={styles.textInput}
+                placeholder={type === 'up' ? "Ex: Salário, Pix..." : "Ex: Supermercado, Uber..."}
+                placeholderTextColor="#A0A0A0"
+                value={title}
+                onChangeText={setTitle}
+              />
+            </View>
+
+            {/* 3. Data */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Data</Text>
+              <View style={styles.dateInputContainer}>
+                <TextInput 
+                  style={styles.dateInput}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#A0A0A0"
+                  keyboardType="numeric"
+                  value={dateText}
+                  onChangeText={handleDateTextChange}
+                  maxLength={10}
+                />
+                <TouchableOpacity 
+                  style={styles.calendarButton} 
+                  onPress={() => setShowPicker(true)}
+                >
+                  <Ionicons name="calendar" size={24} color={PRIMARY_COLOR} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 4. Valor */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Valor</Text>
+              <View style={styles.amountContainer}>
+                <Text style={[styles.currencySymbol, { color: PRIMARY_COLOR }]}>R$</Text>
+                <TextInput 
+                  style={[styles.amountInput, { color: PRIMARY_COLOR }]}
+                  placeholder="0,00"
+                  placeholderTextColor="#A0A0A0"
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={handleAmountChange}
+                />
+              </View>
             </View>
 
             {/* Botão de Guardar */}
@@ -320,7 +364,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
-    marginBottom: 25,
   },
   currencySymbol: { fontSize: 28, fontWeight: 'bold', marginRight: 10 },
   amountInput: { fontSize: 44, fontWeight: 'bold', minWidth: 100, textAlign: 'center' },

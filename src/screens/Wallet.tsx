@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -34,7 +34,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
   { id: '8', title: 'Venda Teclado', type: 'up', amount: '150,00', category: 'Vendas', date: '18 Nov 2025', time: '16:20', description: 'Vendido no OLX.' },
 ];
 
-export default function Wallet() {
+// ADICIONADO: { route, navigation } para conseguir receber os dados da outra tela
+export default function Wallet({ route, navigation }: any) {
   const PRIMARY_COLOR = '#6200ee';
   const GREEN_COLOR = '#27ae60';
   const RED_COLOR = '#e74c3c';
@@ -46,6 +47,29 @@ export default function Wallet() {
   // Estados do Modal
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  // =========================================================
+  // ADICIONADO: Lógica para escutar a chegada de novos dados
+  // =========================================================
+  useEffect(() => {
+    // Se a navegação enviou o pacote "novaTransacao"
+    if (route?.params?.novaTransacao) {
+      const novaTx = route.params.novaTransacao;
+      
+      setTransactions(prevTransactions => {
+        // Verifica se a transação já está na lista para não duplicar
+        const jaExiste = prevTransactions.find(t => t.id === novaTx.id);
+        if (jaExiste) return prevTransactions;
+        
+        // Adiciona a nova transação no topo da lista
+        return [novaTx, ...prevTransactions];
+      });
+
+      // Limpa o parâmetro da rota para que não seja adicionado de novo ao voltar à tela
+      navigation.setParams({ novaTransacao: undefined });
+    }
+  }, [route?.params?.novaTransacao]);
+  // =========================================================
 
   // Filtragem da lista
   const filteredData = transactions.filter(item => {
