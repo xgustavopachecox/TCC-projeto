@@ -8,34 +8,18 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
-  Alert
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Tipagem para os Cofrinhos
-type Goal = {
-  id: string;
-  title: string;
-  targetAmount: number;
-  currentAmount: number;
-  icon: string;
-  color: string;
-};
-
-// Dados Iniciais (agora serão guardados num estado para podermos editar/excluir)
-const INITIAL_GOALS: Goal[] = [
-  { id: '1', title: 'Viagem a Paris', targetAmount: 15000, currentAmount: 4500, icon: 'airplane-outline', color: '#3498db' },
-  { id: '2', title: 'Reserva de Emergência', targetAmount: 20000, currentAmount: 20000, icon: 'shield-checkmark-outline', color: '#27ae60' },
-  { id: '3', title: 'Comprar Carro', targetAmount: 40000, currentAmount: 8500, icon: 'car-outline', color: '#e74c3c' },
-  { id: '4', title: 'Novo Computador', targetAmount: 8000, currentAmount: 2400, icon: 'laptop-outline', color: '#9b59b6' },
-];
+// 1. IMPORTAMOS O COFRE DOS COFRINHOS
+import { useGoals, Goal } from '../context/GoalContext';
 
 export default function Goals() {
   const PRIMARY_COLOR = '#6200ee';
 
-  // --- ESTADO PRINCIPAL DOS DADOS ---
-  const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
+  // 2. BUSCAMOS OS DADOS E AS FUNÇÕES DIRETAMENTE DO CONTEXTO
+  const { goals, addGoal, updateGoal, deleteGoal, addMoney, removeMoney } = useGoals();
 
   // --- ESTADOS DO MODAL DE DETALHES (GERIR DINHEIRO) ---
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -48,16 +32,14 @@ export default function Goals() {
   const [formTitle, setFormTitle] = useState('');
   const [formAmount, setFormAmount] = useState('');
 
-  // Calcula o total guardado
+  // Calcula o total guardado juntando todos os cofrinhos
   const totalSaved = goals.reduce((acc, goal) => acc + goal.currentAmount, 0);
 
-  // Formatar dinheiro (R$ 1.000,00)
   const formatCurrency = (val: number) => {
     let value = val.toFixed(2).replace('.', ',');
     return 'R$ ' + value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
   };
 
-  // Converte a string de dinheiro (1.500,00) para número (1500.00)
   const parseCurrencyToNumber = (valStr: string) => {
     return parseFloat(valStr.replace(/\./g, '').replace(',', '.')) || 0;
   };
@@ -88,11 +70,11 @@ export default function Goals() {
     setInputValue(value);
   };
 
-  // Adicionar e Retirar dinheiro (atualiza a lista em tempo real)
+  // Adicionar e Retirar dinheiro através do contexto
   const handleAddMoney = () => {
     const val = parseCurrencyToNumber(inputValue);
     if(val > 0 && activeGoal) {
-      setGoals(goals.map(g => g.id === activeGoal.id ? { ...g, currentAmount: g.currentAmount + val } : g));
+      addMoney(activeGoal.id, val);
     }
     closeGoalDetails();
   };
@@ -100,16 +82,14 @@ export default function Goals() {
   const handleRemoveMoney = () => {
     const val = parseCurrencyToNumber(inputValue);
     if(val > 0 && activeGoal) {
-      // Impede que o valor fique negativo
-      const newAmount = Math.max(0, activeGoal.currentAmount - val);
-      setGoals(goals.map(g => g.id === activeGoal.id ? { ...g, currentAmount: newAmount } : g));
+      removeMoney(activeGoal.id, val);
     }
     closeGoalDetails();
   };
 
   const handleDeleteGoal = () => {
     if (activeGoal) {
-      setGoals(goals.filter(g => g.id !== activeGoal.id));
+      deleteGoal(activeGoal.id);
       closeGoalDetails();
     }
   };
@@ -119,13 +99,12 @@ export default function Goals() {
       setEditingGoalId(activeGoal.id);
       setFormTitle(activeGoal.title);
       
-      // Formata o valor atual da meta para aparecer certinho no input
       let valString = activeGoal.targetAmount.toFixed(2).replace('.', ',');
       valString = valString.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
       setFormAmount(valString);
       
       closeGoalDetails();
-      setTimeout(() => setFormModalVisible(true), 300); // Abre o formulário após fechar detalhes
+      setTimeout(() => setFormModalVisible(true), 300);
     }
   };
 
@@ -157,22 +136,22 @@ export default function Goals() {
 
   const handleSaveGoal = () => {
     const targetVal = parseCurrencyToNumber(formAmount);
-    if (!formTitle || targetVal <= 0) return; // Validação simples
+    if (!formTitle || targetVal <= 0) return;
 
     if (editingGoalId) {
-      // Editar cofrinho existente
-      setGoals(goals.map(g => g.id === editingGoalId ? { ...g, title: formTitle, targetAmount: targetVal } : g));
+      // Edita através do contexto
+      updateGoal(editingGoalId, { title: formTitle, targetAmount: targetVal });
     } else {
-      // Criar novo cofrinho
+      // Cria através do contexto
       const newGoal: Goal = {
-        id: Math.random().toString(), // Gera ID temporário
+        id: Math.random().toString(36).substring(7),
         title: formTitle,
         targetAmount: targetVal,
         currentAmount: 0,
-        icon: 'star-outline', // Ícone padrão
-        color: PRIMARY_COLOR // Cor padrão
+        icon: 'star-outline', 
+        color: PRIMARY_COLOR 
       };
-      setGoals([...goals, newGoal]);
+      addGoal(newGoal);
     }
     closeGoalForm();
   };
@@ -210,7 +189,7 @@ export default function Goals() {
           </View>
 
           {goals.length === 0 && (
-            <Text style={styles.emptyText}>Você ainda não tem cofrinhos criados.</Text>
+            <Text style={styles.emptyText}>Você ainda não tem cofrinhos criados. Comece agora!</Text>
           )}
 
           {goals.map((goal) => {
@@ -305,7 +284,9 @@ export default function Goals() {
                     <TouchableOpacity onPress={handleDeleteGoal} style={styles.headerIconBtn}>
                       <Ionicons name="trash" size={22} color="#e74c3c" />
                     </TouchableOpacity>
-          
+                    <TouchableOpacity onPress={closeGoalDetails} style={styles.headerIconBtn}>
+                      <Ionicons name="close" size={24} color="#999" />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -494,7 +475,7 @@ const styles = StyleSheet.create({
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15, // Espaço entre os ícones de ação no topo direito
+    gap: 15, 
   },
   headerIconBtn: {
     padding: 4,
