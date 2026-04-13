@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define como é o "molde" de uma transação
 export type Transaction = {
@@ -24,17 +25,40 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 
 // Cria o "Guarda" do Cofre (Provider)
 export function TransactionProvider({ children }: { children: ReactNode }) {
-  // Começamos com uma lista VAZIA (sem dados falsos!)
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // Carrega as transações do AsyncStorage ao iniciar
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@transactions');
+        if (stored) {
+          setTransactions(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar transações:', error);
+      }
+    };
+    loadTransactions();
+  }, []);
+
+  const persistTransactions = async (newTransactions: Transaction[]) => {
+    setTransactions(newTransactions);
+    try {
+      await AsyncStorage.setItem('@transactions', JSON.stringify(newTransactions));
+    } catch (error) {
+      console.error('Erro ao salvar transações:', error);
+    }
+  };
 
   // Função para adicionar dinheiro/gasto
   const addTransaction = (tx: Transaction) => {
-    setTransactions([tx, ...transactions]); // Coloca a nova no início da lista
+    persistTransactions([tx, ...transactions]); // Coloca a nova no início da lista
   };
 
   // Função para apagar
   const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter(t => t.id !== id));
+    persistTransactions(transactions.filter(t => t.id !== id));
   };
 
   return (

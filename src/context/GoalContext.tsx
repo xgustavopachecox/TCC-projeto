@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define o molde de um Cofrinho
 export type Goal = {
@@ -24,27 +25,49 @@ const GoalContext = createContext<GoalContextType | undefined>(undefined);
 
 // O Guarda do Cofre
 export function GoalProvider({ children }: { children: ReactNode }) {
-  // Começamos com zero cofrinhos reais
   const [goals, setGoals] = useState<Goal[]>([]);
 
+  useEffect(() => {
+    const loadGoals = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@goals');
+        if (stored) {
+          setGoals(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar metas:', error);
+      }
+    };
+    loadGoals();
+  }, []);
+
+  const persistGoals = async (newGoals: Goal[]) => {
+    setGoals(newGoals);
+    try {
+      await AsyncStorage.setItem('@goals', JSON.stringify(newGoals));
+    } catch (error) {
+      console.error('Erro ao salvar metas:', error);
+    }
+  };
+
   const addGoal = (goal: Goal) => {
-    setGoals([...goals, goal]);
+    persistGoals([...goals, goal]);
   };
 
   const updateGoal = (id: string, updatedGoal: Partial<Goal>) => {
-    setGoals(goals.map(g => g.id === id ? { ...g, ...updatedGoal } : g));
+    persistGoals(goals.map(g => g.id === id ? { ...g, ...updatedGoal } : g));
   };
 
   const deleteGoal = (id: string) => {
-    setGoals(goals.filter(g => g.id !== id));
+    persistGoals(goals.filter(g => g.id !== id));
   };
 
   const addMoney = (id: string, amount: number) => {
-    setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: g.currentAmount + amount } : g));
+    persistGoals(goals.map(g => g.id === id ? { ...g, currentAmount: g.currentAmount + amount } : g));
   };
 
   const removeMoney = (id: string, amount: number) => {
-    setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: Math.max(0, g.currentAmount - amount) } : g));
+    persistGoals(goals.map(g => g.id === id ? { ...g, currentAmount: Math.max(0, g.currentAmount - amount) } : g));
   };
 
   return (

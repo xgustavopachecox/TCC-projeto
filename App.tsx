@@ -1,17 +1,16 @@
 import React, { useEffect } from 'react';
-import AppNavigator from './src/navigation/AppNavigator';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform } from 'react-native';
+import AppNavigator from './src/navigation/AppNavigator';
 
-// 1. Importamos os nossos dois Cofres
+// IMPORTAR OS COFRES AQUI
 import { TransactionProvider } from './src/context/TransactionContext';
-import { GoalProvider } from './src/context/GoalContext'; // <-- ADICIONADO AQUI
+import { GoalProvider } from './src/context/GoalContext';
+import { UserProvider } from './src/context/UserContext'; // <-- ADICIONADO AQUI
 
 export default function App() {
-  
   useEffect(() => {
-    // Esconder a barra de navegação no Android
     if (Platform.OS === 'android') {
       NavigationBar.setVisibilityAsync("hidden");
       NavigationBar.setBehaviorAsync("overlay-swipe");
@@ -20,14 +19,14 @@ export default function App() {
   }, []);
 
   return (
-    // 2. Envolvemos a aplicação com ambos os provedores
-    // Um fica "dentro" do outro, assim a app tem acesso a tudo!
-    <TransactionProvider>
-      <GoalProvider>
-        {/* Mudei para "light" para os ícones ficarem brancos em cima do roxo */}
-        <StatusBar style="light" backgroundColor="#6200ee" /> 
-        <AppNavigator />
-      </GoalProvider>
-    </TransactionProvider>
+    // A ORDEM IMPORTA: UserProvider no topo!
+    <UserProvider>
+      <TransactionProvider>
+        <GoalProvider>
+          <StatusBar style="light" backgroundColor="#6200ee" /> 
+          <AppNavigator />
+        </GoalProvider>
+      </TransactionProvider>
+    </UserProvider>
   );
 }

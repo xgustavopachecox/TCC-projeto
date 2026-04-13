@@ -8,7 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Home from '../screens/Home';
 import Wallet from '../screens/Wallet'; 
 import Goals from '../screens/Goals';   
-import Menu from '../screens/Menu'; 
+import Advisor from '../screens/Advisor'; 
 import AddTransaction from '../screens/AddTransaction'
 
 const Tab = createBottomTabNavigator();
@@ -95,10 +95,10 @@ export default function AppNavigator() {
           )
         }}/>
 
-        <Tab.Screen name="Menu" component={Menu} options={{
+        <Tab.Screen name="I.A" component={Advisor} options={{
           tabBarIcon: ({ focused }) => (
             <View style={{alignItems: 'center', justifyContent: 'center', top: 10}}>
-              <Ionicons name="ellipsis-horizontal" size={25} color={focused ? '#6200ee' : '#748c94'} />
+              <Ionicons name={focused ? "sparkles" : "sparkles-outline"} size={25} color={focused ? '#6200ee' : '#748c94'} />
             </View>
           )
         }}/>

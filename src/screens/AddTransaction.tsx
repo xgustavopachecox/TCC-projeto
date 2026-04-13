@@ -16,6 +16,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 // 1. IMPORTAMOS O NOSSO COFRE CENTRAL
 import { useTransactions } from '../context/TransactionContext'; 
+import { useUser } from '../context/UserContext';
 
 const hoje = new Date();
 const dia = String(hoje.getDate()).padStart(2, '0');
@@ -23,29 +24,13 @@ const mes = String(hoje.getMonth() + 1).padStart(2, '0');
 const ano = hoje.getFullYear();
 const dataAtual = `${dia}/${mes}/${ano}`;
 
-const EXPENSE_CATEGORIES = [
-  { id: 'e1', name: 'Alimentação', icon: 'fast-food-outline' },
-  { id: 'e2', name: 'Transporte', icon: 'car-outline' },
-  { id: 'e3', name: 'Contas', icon: 'document-text-outline' },
-  { id: 'e4', name: 'Lazer', icon: 'game-controller-outline' },
-  { id: 'e5', name: 'Saúde', icon: 'medkit-outline' },
-  { id: 'e6', name: 'Outros', icon: 'ellipsis-horizontal-circle-outline' },
-];
-
-const INCOME_CATEGORIES = [
-  { id: 'i1', name: 'Salário', icon: 'cash-outline' },
-  { id: 'i2', name: 'Vendas', icon: 'pricetag-outline' },
-  { id: 'i3', name: 'Investimentos', icon: 'trending-up-outline' },
-  { id: 'i4', name: 'Pix', icon: 'phone-portrait-outline' },
-  { id: 'i5', name: 'Outros', icon: 'ellipsis-horizontal-circle-outline' },
-];
-
 export default function AddTransaction() {
   const navigation = useNavigation<any>();
   const PRIMARY_COLOR = '#6200ee';
   
   // 2. PUXAMOS A FUNÇÃO DE GUARDAR DO COFRE
   const { addTransaction } = useTransactions();
+  const { categories } = useUser();
   
   const [type, setType] = useState<'down' | 'up'>('down'); 
   const [amount, setAmount] = useState('');
@@ -55,7 +40,7 @@ export default function AddTransaction() {
   const [dateObj, setDateObj] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
-  const currentCategories = type === 'up' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const currentCategories = categories.filter(c => c.type === type);
 
   useEffect(() => {
     if (type === 'up') setSelectedCategory('i1');

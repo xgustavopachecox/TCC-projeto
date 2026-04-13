@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { 
   View, 
@@ -8,46 +8,48 @@ import {
   TouchableOpacity, 
   Image, 
   Modal,
-  Platform
+  Platform,
+  Dimensions,
+  StatusBar,
+  TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Importação do Contexto Central
+// Importação dos Contextos
 import { useTransactions, Transaction } from '../context/TransactionContext';
+import { useUser } from '../context/UserContext';
 
 export default function Home() {
   const navigation = useNavigation<any>();
+  const { userName, userPhoto, investorProfile, setInvestorProfile } = useUser();
   
   // ==========================================
-  // ESTADOS DE DATA E SELEÇÃO DE PERÍODO
+  // ESTADOS DE DATA E MODAIS
   // ==========================================
   const [viewDate, setViewDate] = useState(new Date()); 
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
+  const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
+  const [showBalance, setShowBalance] = useState(true);
 
-  const months = [
-    'JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 
-    'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'
-  ];
-  
+  // Estados temporários para edição do perfil
+  const { setUserName, setUserPhoto } = useUser();
+  const [tempName, setTempName] = useState(userName);
+  const [tempPhotoUrl, setTempPhotoUrl] = useState(userPhoto);
+
+  const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const years = [2024, 2025, 2026, 2027];
 
-  // Busca as transações REAIS do Cofre Central
   const { transactions } = useTransactions();
 
-  // Estados para os Modais
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
-
-  // Cores de Design
   const PRIMARY_COLOR = '#6200ee';
   const GREEN_COLOR = '#27ae60';
   const RED_COLOR = '#e74c3c';
 
   // ==========================================
-  // MOTOR DE CÁLCULO (FILTRADO POR PERÍODO)
+  // MOTOR DE CÁLCULO
   // ==========================================
-  
   const parseAmount = (amountStr: string) => {
     if (!amountStr) return 0;
     return parseFloat(amountStr.replace(/\./g, '').replace(',', '.'));
@@ -57,52 +59,80 @@ export default function Home() {
     return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // FILTRO: Apenas transações do período selecionado
-  const filteredTransactions = transactions.filter(tx => {
-    const [d, m, y] = tx.date.split('/');
-    return parseInt(m) === viewDate.getMonth() + 1 && parseInt(y) === viewDate.getFullYear();
-  });
+  // 1. SALDO ACUMULADO (A CORREÇÃO SOLICITADA)
+  // O orçamento permanece acumulado considerando tudo até ao fim do mês que estás a ver
+  const accumulatedTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      const [d, m, y] = tx.date.split('/');
+      const txDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+      const lastDayOfViewMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+      return txDate <= lastDayOfViewMonth;
+    });
+  }, [transactions, viewDate]);
 
-  let totalIncome = 0;
-  let totalExpense = 0;
-  const categoryTotals: Record<string, number> = {};
+  const currentBalance = useMemo(() => {
+    let balance = 0;
+    accumulatedTransactions.forEach(tx => {
+      const val = parseAmount(tx.amount);
+      if (tx.type === 'up') balance += val;
+      else balance -= val;
+    });
+    return balance;
+  }, [accumulatedTransactions]);
 
-  filteredTransactions.forEach(tx => {
-    const val = parseAmount(tx.amount);
-    if (tx.type === 'up') {
-      totalIncome += val;
-    } else {
-      totalExpense += val;
-      if (!categoryTotals[tx.category]) categoryTotals[tx.category] = 0;
-      categoryTotals[tx.category] += val;
-    }
-  });
+  // 2. RESUMO DO MÊS (Apenas fluxo do período)
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      const [d, m, y] = tx.date.split('/');
+      return parseInt(m) === viewDate.getMonth() + 1 && parseInt(y) === viewDate.getFullYear();
+    });
+  }, [transactions, viewDate]);
 
-  const currentBalance = totalIncome - totalExpense;
-  const percentSpentOfIncome = totalIncome > 0 ? Math.round((totalExpense / totalIncome) * 100) : 0;
+  const { totalIncome, totalExpense, categoryTotals } = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    const totals: Record<string, number> = {};
 
-  // Estatísticas de categorias dinâmicas
-  const dynamicCategoryStats = Object.keys(categoryTotals).map((catName, index) => {
-    const val = categoryTotals[catName];
-    const percentageOfExpenses = totalExpense > 0 ? Math.round((val / totalExpense) * 100) : 0;
-    const colors = ['#6200ee', '#ffb74d', '#26c6da', '#e74c3c', '#2ecc71', '#f1c40f'];
-    const icons = ['cart-outline', 'game-controller-outline', 'car-outline', 'home-outline', 'medkit-outline', 'wallet-outline'];
+    filteredTransactions.forEach(tx => {
+      const val = parseAmount(tx.amount);
+      if (tx.type === 'up') {
+        income += val;
+      } else {
+        expense += val;
+        if (!totals[tx.category]) totals[tx.category] = 0;
+        totals[tx.category] += val;
+      }
+    });
 
-    return {
-      id: `cat_${index}`,
-      name: catName,
-      icon: icons[index % icons.length],
-      color: colors[index % colors.length],
-      percentage: percentageOfExpenses,
-      amount: formatAmount(val),
-      rawAmount: val
-    };
-  }).sort((a, b) => b.rawAmount - a.rawAmount);
+    return { totalIncome: income, totalExpense: expense, categoryTotals: totals };
+  }, [filteredTransactions]);
+
+  const percentSpentOfIncome = useMemo(() => {
+    return totalIncome > 0 ? Math.round((totalExpense / totalIncome) * 100) : 0;
+  }, [totalIncome, totalExpense]);
+
+  const dynamicCategoryStats = useMemo(() => {
+    return Object.keys(categoryTotals).map((catName, index) => {
+      const val = categoryTotals[catName];
+      const percentageOfExpenses = totalExpense > 0 ? Math.round((val / totalExpense) * 100) : 0;
+      const colors = ['#6200ee', '#ffb74d', '#26c6da', '#e74c3c', '#2ecc71', '#f1c40f'];
+      const icons = ['cart-outline', 'game-controller-outline', 'car-outline', 'home-outline', 'medkit-outline', 'wallet-outline'];
+
+      return {
+        id: `cat_${index}`,
+        name: catName,
+        icon: icons[index % icons.length],
+        color: colors[index % colors.length],
+        percentage: percentageOfExpenses,
+        amount: formatAmount(val),
+        rawAmount: val
+      };
+    }).sort((a, b) => b.rawAmount - a.rawAmount);
+  }, [categoryTotals, totalExpense]);
 
   // ==========================================
   // FUNÇÕES DE INTERAÇÃO
   // ==========================================
-  
   const changeMonth = (monthIndex: number) => {
     const newDate = new Date(viewDate.getFullYear(), monthIndex, 1);
     setViewDate(newDate);
@@ -113,33 +143,40 @@ export default function Home() {
     setViewDate(newDate);
   };
 
-  const openDetails = (tx: Transaction) => {
-    setSelectedTx(tx);
-    setModalVisible(true);
-  };
-
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY_COLOR} />
       
-      {/* HEADER DINÂMICO */}
+      {/* HEADER COM PERFIL */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>Olá, Pacheco</Text>
-            <Text style={styles.subGreeting}>Resumo de {months[viewDate.getMonth()]} / {viewDate.getFullYear()}</Text>
+          <View style={styles.headerLeftGroup}>
+            <TouchableOpacity 
+              onPress={() => setProfileModalVisible(true)}
+              style={styles.profileButton}
+            >
+              <Image source={{ uri: userPhoto }} style={styles.avatar} />
+            </TouchableOpacity>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={styles.greeting}>Olá, {userName}</Text>
+              <Text style={styles.subGreeting}>{months[viewDate.getMonth()]} / {viewDate.getFullYear()}</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
-            <Image source={{ uri: 'https://github.com/shadcn.png' }} style={styles.avatar} />
-          </TouchableOpacity>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => setShowBalance(!showBalance)}>
+              <Ionicons name={showBalance ? "eye-outline" : "eye-off-outline"} size={24} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginLeft: 15 }}><Ionicons name="help-circle-outline" size={24} color="#FFF" /></TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         
-        {/* CARD DE SALDO COM SELETOR DE PERÍODO */}
+        {/* CARD DE CONTA */}
         <View style={styles.balanceCard}>
           <View style={styles.cardHeader}>
-            <Text style={styles.balanceLabel}>Saldo do Mês</Text>
+            <Text style={styles.balanceLabel}>Saldo disponível</Text>
             <TouchableOpacity 
               style={styles.filterPill} 
               onPress={() => setDatePickerVisible(true)}
@@ -152,7 +189,9 @@ export default function Home() {
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.balanceValue}>R$ {formatAmount(currentBalance)}</Text>
+          <Text style={styles.balanceValue}>
+            {showBalance ? `R$ ${formatAmount(currentBalance)}` : '••••'}
+          </Text>
 
           <View style={styles.separator} />
 
@@ -179,7 +218,7 @@ export default function Home() {
           </View>
         </View>
 
-        {/* ANÁLISE MENSAL FILTRADA */}
+        {/* ANÁLISE MENSAL */}
         <Text style={styles.sectionTitle}>Análise do Período</Text>
         <TouchableOpacity 
           style={styles.chartCard} 
@@ -199,17 +238,14 @@ export default function Home() {
                </View>
              ))}
              {dynamicCategoryStats.length === 0 && (
-               <Text style={styles.legendText}>Sem despesas registadas.</Text>
+               <Text style={styles.legendText}>Sem despesas no mês.</Text>
              )}
           </View>
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
 
-        {/* LISTA DE LANÇAMENTOS DO MÊS SELECIONADO */}
-        <View style={styles.listHeaderRow}>
-          <Text style={styles.sectionTitle}>Lançamentos de {months[viewDate.getMonth()]}</Text>
-        </View>
-
+        {/* LANÇAMENTOS DO MÊS */}
+        <Text style={styles.sectionTitle}>Lançamentos de {months[viewDate.getMonth()]}</Text>
         {filteredTransactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={48} color="#DDD" />
@@ -217,12 +253,7 @@ export default function Home() {
           </View>
         ) : (
           filteredTransactions.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.transactionItem}
-              activeOpacity={0.7}
-              onPress={() => openDetails(item)}
-            >
+            <View key={item.id} style={styles.transactionItem}>
               <View style={styles.transactionLeft}>
                 <View style={[styles.categoryIcon, { backgroundColor: item.type === 'up' ? '#e8f5e9' : '#ffebee' }]}>
                   <Ionicons name={item.type === 'up' ? "arrow-up" : "arrow-down"} size={20} color={item.type === 'up' ? GREEN_COLOR : RED_COLOR} />
@@ -235,26 +266,93 @@ export default function Home() {
               <Text style={[styles.transactionAmount, { color: item.type === 'up' ? GREEN_COLOR : RED_COLOR }]}>
                 {item.type === 'up' ? '+ R$ ' : '- R$ '}{item.amount}
               </Text>
-            </TouchableOpacity>
+            </View>
           ))
         )}
       </ScrollView>
 
-      {/* =================================================== */}
-      {/* MODAL: SELETOR DE MÊS E ANO (CORRIGIDO)              */}
-      {/* =================================================== */}
-      <Modal 
-        visible={datePickerVisible} 
-        animationType="fade" 
-        transparent={true}
-        onRequestClose={() => setDatePickerVisible(false)}
-      >
+      {/* MODAL CONFIGURAÇÕES (NUBANK STYLE) */}
+      <Modal visible={profileModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlayDark}>
+          <View style={styles.nubankModal}>
+            <View style={styles.modalTopNav}>
+              <TouchableOpacity onPress={() => setProfileModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#FFF" />
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 20 }}>
+                <TouchableOpacity><Ionicons name="help-circle-outline" size={24} color="#FFF" /></TouchableOpacity>
+                <TouchableOpacity><Ionicons name="settings-outline" size={24} color="#FFF" /></TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.userProfileSection}>
+                <View style={styles.avatarLargeContainer}>
+                  <Image source={{ uri: userPhoto }} style={styles.avatarLarge} />
+                  <View style={styles.cameraBadge}><Ionicons name="camera" size={14} color="#FFF" /></View>
+                </View>
+                <Text style={styles.userNameHeader}>{userName}</Text>
+                <Text style={styles.userAccountText}>Agência 0001 • Conta 12345-6</Text>
+              </View>
+
+              {/* Botão de Perfil Investidor (Score Style) */}
+              <TouchableOpacity 
+                style={styles.scoreCard}
+                onPress={() => {
+                  setProfileModalVisible(false);
+                  // Reseta o perfil mockado para forçar o quiz aparecer novamente
+                  if (investorProfile !== 'Não definido') setInvestorProfile('Não definido');
+                  navigation.navigate('I.A');
+                }}
+              >
+                <View style={styles.scoreLeft}>
+                   <Ionicons name="speedometer-outline" size={24} color="#FFF" />
+                   <View style={{ marginLeft: 15 }}>
+                      <Text style={styles.scoreLabel}>Perfil de Investidor</Text>
+                      <Text style={styles.scoreSub}>{investorProfile}</Text>
+                   </View>
+                </View>
+                <View style={styles.scoreBadge}>
+                  <Text style={styles.scoreBadgeText}>
+                    {investorProfile === 'Não definido' ? 'Fazer' : 'Refazer'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <Text style={styles.menuLabel}>A minha conta</Text>
+              
+              <TouchableOpacity style={styles.menuRow} onPress={() => { setTempName(userName); setTempPhotoUrl(userPhoto); setEditProfileModalVisible(true); }}>
+                <View style={styles.menuRowLeft}>
+                  <Ionicons name="person-outline" size={22} color="#FFF" />
+                  <Text style={styles.menuRowText}>Editar Perfil</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#333" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuRow}>
+                <View style={styles.menuRowLeft}>
+                  <Ionicons name="grid-outline" size={22} color="#FFF" />
+                  <Text style={styles.menuRowText}>Configurar Categorias</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#333" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.logoutBtn}>
+                <Ionicons name="log-out-outline" size={22} color="#FFF" />
+                <Text style={styles.logoutText}>Sair da aplicação</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL SELETOR DE DATA */}
+      <Modal visible={datePickerVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setDatePickerVisible(false)} />
           <View style={styles.pickerContent}>
             <Text style={styles.pickerTitle}>Escolher Período</Text>
             
-            <Text style={styles.pickerSubLabel}>Ano</Text>
             <View style={styles.yearRow}>
               {years.map(y => (
                 <TouchableOpacity 
@@ -267,7 +365,6 @@ export default function Home() {
               ))}
             </View>
 
-            <Text style={styles.pickerSubLabel}>Mês</Text>
             <View style={styles.monthGrid}>
               {months.map((m, index) => (
                 <TouchableOpacity 
@@ -287,26 +384,14 @@ export default function Home() {
         </View>
       </Modal>
 
-      {/* =================================================== */}
-      {/* MODAL: ANÁLISE MENSAL (MELHORADO)                   */}
-      {/* =================================================== */}
-      <Modal 
-        visible={analysisModalVisible} 
-        animationType="slide" 
-        transparent={true} 
-        onRequestClose={() => setAnalysisModalVisible(false)}
-      >
+      {/* MODAL ANÁLISE MENSAL */}
+      <Modal visible={analysisModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setAnalysisModalVisible(false)} />
           <View style={styles.analysisModalContent}>
             <View style={styles.modalHandle} />
+            <Text style={styles.analysisModalTitle}>Análise de {months[viewDate.getMonth()]}</Text>
             
-            <View style={styles.modalHeaderInfo}>
-              <Text style={styles.analysisModalTitle}>Análise de {months[viewDate.getMonth()]} {viewDate.getFullYear()}</Text>
-              <Text style={styles.analysisModalSub}>Veja o detalhamento da sua saúde financeira</Text>
-            </View>
-
-            {/* Resumo Rápido no Modal */}
             <View style={styles.analysisSummaryCards}>
               <View style={[styles.miniCard, { borderLeftColor: GREEN_COLOR }]}>
                 <Text style={styles.miniCardLabel}>Ganhos</Text>
@@ -318,216 +403,173 @@ export default function Home() {
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 10 }}>
-              <Text style={styles.detailSectionTitle}>Gastos por Categoria</Text>
-              
-              {dynamicCategoryStats.length > 0 ? (
-                dynamicCategoryStats.map((stat) => (
-                  <View key={stat.id} style={styles.statCard}>
-                    <View style={styles.statHeader}>
-                      <View style={styles.statTitleGroup}>
-                        <View style={[styles.statIconBg, { backgroundColor: stat.color + '15' }]}>
-                          <Ionicons name={stat.icon as any} size={18} color={stat.color} />
-                        </View>
-                        <Text style={styles.statName}>{stat.name}</Text>
-                      </View>
-                      <Text style={styles.statAmount}>R$ {stat.amount}</Text>
-                    </View>
-                    
-                    <View style={styles.progressBarContainer}>
-                      <View style={styles.progressBarBg}>
-                        <View style={[styles.progressBarFill, { width: `${stat.percentage}%`, backgroundColor: stat.color }]} />
-                      </View>
-                      <Text style={styles.statPercText}>{stat.percentage}%</Text>
-                    </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {dynamicCategoryStats.map((stat) => (
+                <View key={stat.id} style={styles.statCard}>
+                  <View style={styles.statHeader}>
+                    <Text style={styles.statName}>{stat.name}</Text>
+                    <Text style={styles.statAmount}>R$ {stat.amount}</Text>
                   </View>
-                ))
-              ) : (
-                <View style={styles.noDataContainer}>
-                   <Ionicons name="stats-chart-outline" size={40} color="#CCC" />
-                   <Text style={styles.noDataText}>Não há dados de gastos para exibir.</Text>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${stat.percentage}%`, backgroundColor: stat.color }]} />
+                  </View>
                 </View>
-              )}
-
-              {totalIncome > 0 && (
-                <View style={[styles.insightBox, { backgroundColor: percentSpentOfIncome > 80 ? '#FFF1F0' : '#F6FFED' }]}>
-                  <Ionicons 
-                    name={percentSpentOfIncome > 80 ? "warning-outline" : "checkmark-circle-outline"} 
-                    size={22} 
-                    color={percentSpentOfIncome > 80 ? RED_COLOR : GREEN_COLOR} 
-                  />
-                  <Text style={[styles.insightText, { color: percentSpentOfIncome > 80 ? RED_COLOR : GREEN_COLOR }]}>
-                    Você utilizou {percentSpentOfIncome}% da sua receita mensal. 
-                    {percentSpentOfIncome > 80 ? " Cuidado com o orçamento!" : " Bom trabalho!"}
-                  </Text>
-                </View>
-              )}
+              ))}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
+      {/* MODAL EDITAR PERFIL */}
+      <Modal visible={editProfileModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlayDarkTranslucent}>
+          <View style={styles.editProfileCard}>
+            <Text style={styles.editProfileTitle}>Editar Perfil</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Como devemos lhe chamar?</Text>
+              <TextInput 
+                style={styles.textInput} 
+                value={tempName} 
+                onChangeText={setTempName} 
+                placeholder="Ex: Pacheco"
+                placeholderTextColor="#A0A0A0"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>URL da sua Foto (opcional)</Text>
+              <TextInput 
+                style={styles.textInput} 
+                value={tempPhotoUrl} 
+                onChangeText={setTempPhotoUrl} 
+                placeholder="Ex: https://github.com/..."
+                placeholderTextColor="#A0A0A0"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.editProfileActions}>
+              <TouchableOpacity 
+                style={[styles.editProfileBtn, { backgroundColor: '#F0F0F0' }]} 
+                onPress={() => setEditProfileModalVisible(false)}
+              >
+                <Text style={[styles.editProfileBtnText, { color: '#666' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.editProfileBtn, { backgroundColor: '#6200ee' }]} 
+                onPress={() => {
+                  if (tempName) setUserName(tempName);
+                  if (tempPhotoUrl) setUserPhoto(tempPhotoUrl);
+                  setEditProfileModalVisible(false);
+                }}
+              >
+                <Text style={[styles.editProfileBtnText, { color: '#FFF' }]}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F4F7' },
-  header: { 
-    backgroundColor: '#6200ee', 
-    height: 140, 
-    borderBottomLeftRadius: 30, 
-    borderBottomRightRadius: 30, 
-    paddingTop: 60, 
-    paddingHorizontal: 20 
-  },
+  header: { backgroundColor: '#6200ee', height: 140, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingTop: 60, paddingHorizontal: 20 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-  subGreeting: { color: '#E0E0E0', fontSize: 14, marginTop: 2 },
+  headerLeftGroup: { flexDirection: 'row', alignItems: 'center' },
+  greeting: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+  subGreeting: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 2 },
   profileButton: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 25 },
   avatar: { width: 46, height: 46, borderRadius: 23 },
-  
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
   content: { flex: 1, paddingHorizontal: 20, marginTop: 20 },
-  
-  balanceCard: { 
-    backgroundColor: '#FFF', 
-    borderRadius: 22, 
-    padding: 20, 
-    elevation: 6, 
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    marginBottom: 25 
-  },
+  balanceCard: { backgroundColor: '#FFF', borderRadius: 22, padding: 20, elevation: 6, marginBottom: 25 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  balanceLabel: { color: '#888', fontSize: 14, fontWeight: '500' },
-  filterPill: { 
-    flexDirection: 'row', 
-    backgroundColor: '#F3E5F5', 
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
-    borderRadius: 20, 
-    alignItems: 'center', 
-    gap: 6 
-  },
+  balanceLabel: { color: '#888', fontSize: 14 },
+  filterPill: { flexDirection: 'row', backgroundColor: '#F3E5F5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: 'center', gap: 6 },
   filterText: { color: '#6200ee', fontSize: 13, fontWeight: 'bold' },
-  balanceValue: { fontSize: 34, fontWeight: 'bold', color: '#333' },
+  balanceValue: { fontSize: 32, fontWeight: 'bold', color: '#333' },
   separator: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 18 },
   rowSummary: { flexDirection: 'row', justifyContent: 'space-between' },
   summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBg: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   summaryLabel: { fontSize: 12, color: '#888' },
-  summaryValueUp: { fontSize: 16, fontWeight: 'bold', color: '#27ae60' },
-  summaryValueDown: { fontSize: 16, fontWeight: 'bold', color: '#e74c3c' },
-  
+  summaryValueUp: { fontSize: 15, fontWeight: 'bold', color: '#27ae60' },
+  summaryValueDown: { fontSize: 15, fontWeight: 'bold', color: '#e74c3c' },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  
-  chartCard: { 
-    backgroundColor: '#FFF', 
-    padding: 20, 
-    borderRadius: 20, 
-    marginBottom: 25, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    elevation: 3
-  },
-  chartCircle: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 40, 
-    borderWidth: 8, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
+  chartCard: { backgroundColor: '#FFF', padding: 20, borderRadius: 20, marginBottom: 25, flexDirection: 'row', alignItems: 'center', elevation: 3 },
+  chartCircle: { width: 80, height: 80, borderRadius: 40, borderWidth: 8, justifyContent: 'center', alignItems: 'center' },
   chartPercent: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   chartLabel: { fontSize: 10, color: '#888' },
   chartLegend: { flex: 1, marginLeft: 20, gap: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 14, color: '#666' },
-  
-  listHeaderRow: { marginBottom: 15 },
-  transactionItem: { 
-    backgroundColor: '#FFF', 
-    padding: 16, 
-    borderRadius: 18, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 12,
-    elevation: 2
-  },
+  transactionItem: { backgroundColor: '#FFF', padding: 16, borderRadius: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, elevation: 2 },
   transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   categoryIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   transactionTitle: { fontWeight: 'bold', fontSize: 15, color: '#333' },
-  transactionCategory: { color: '#999', fontSize: 12, marginTop: 2 },
+  transactionCategory: { color: '#999', fontSize: 12 },
   transactionAmount: { fontWeight: 'bold', fontSize: 15 },
-  
   emptyState: { alignItems: 'center', paddingVertical: 40, opacity: 0.6 },
-  emptyText: { color: '#888', marginTop: 12, fontStyle: 'italic', fontSize: 15 },
-
-  // --- ESTILOS DOS MODAIS ---
+  emptyText: { color: '#888', marginTop: 12, fontStyle: 'italic' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-  
-  pickerContent: { 
-    width: '88%', 
-    backgroundColor: '#FFF', 
-    borderRadius: 28, 
-    padding: 25, 
-    elevation: 20
-  },
-  pickerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, color: '#333' },
-  pickerSubLabel: { fontSize: 13, color: '#999', marginBottom: 12, fontWeight: 'bold', textTransform: 'uppercase' },
+  pickerContent: { width: '88%', backgroundColor: '#FFF', borderRadius: 28, padding: 25, elevation: 20 },
+  pickerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   yearRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  yearBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#F5F5F5', minWidth: 65, alignItems: 'center' },
-  yearBtnText: { color: '#666', fontSize: 14 }, // CORREÇÃO: ADICIONADO
+  yearBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#F5F5F5' },
+  yearBtnText: { color: '#666', fontSize: 14, fontWeight: '500' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 30 },
   monthBtn: { width: '22%', paddingVertical: 12, alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 12 },
-  monthBtnText: { color: '#666', fontSize: 13 }, // CORREÇÃO: ADICIONADO
+  monthBtnText: { color: '#666', fontSize: 13, fontWeight: '500' },
   activeBtn: { backgroundColor: '#6200ee' },
   activeBtnText: { color: '#FFF', fontWeight: 'bold' },
   confirmBtn: { backgroundColor: '#6200ee', padding: 16, borderRadius: 18, alignItems: 'center' },
   confirmBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  
-  // Analysis Modal Styles
-  analysisModalContent: { 
-    backgroundColor: '#FFF', 
-    borderTopLeftRadius: 30, 
-    borderTopRightRadius: 30, 
-    padding: 25, 
-    maxHeight: '90%', 
-    width: '100%', 
-    position: 'absolute', 
-    bottom: 0 
-  },
+  modalOverlayDark: { flex: 1, backgroundColor: '#000' },
+  nubankModal: { flex: 1, padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+  modalTopNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  userProfileSection: { marginBottom: 40 },
+  avatarLargeContainer: { width: 80, height: 80, borderRadius: 40, marginBottom: 15, position: 'relative' },
+  avatarLarge: { width: 80, height: 80, borderRadius: 40 },
+  cameraBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#6200ee', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000' },
+  userNameHeader: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+  userAccountText: { color: '#888', fontSize: 14, marginTop: 4 },
+  scoreCard: { backgroundColor: '#111', padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
+  scoreLeft: { flexDirection: 'row', alignItems: 'center' },
+  scoreLabel: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  scoreSub: { color: '#888', fontSize: 13, marginTop: 2 },
+  scoreBadge: { backgroundColor: '#6200ee', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  scoreBadgeText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
+  menuLabel: { color: '#888', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 15, letterSpacing: 1 },
+  menuRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#111' },
+  menuRowLeft: { flexDirection: 'row', alignItems: 'center' },
+  menuRowText: { color: '#FFF', fontSize: 16, marginLeft: 15 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 40 },
+  logoutText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  analysisModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '90%', width: '100%', position: 'absolute', bottom: 0 },
   modalHandle: { width: 45, height: 5, backgroundColor: '#E0E0E0', alignSelf: 'center', borderRadius: 3, marginBottom: 15 },
-  modalHeaderInfo: { alignItems: 'center', marginBottom: 20 },
-  analysisModalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  analysisModalSub: { fontSize: 13, color: '#999', marginTop: 4 },
-  
-  analysisSummaryCards: { flexDirection: 'row', gap: 12, marginBottom: 25 },
+  analysisModalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#333' },
+  analysisSummaryCards: { flexDirection: 'row', gap: 12, marginVertical: 20 },
   miniCard: { flex: 1, backgroundColor: '#FAFAFA', padding: 15, borderRadius: 16, borderLeftWidth: 4 },
-  miniCardLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 'bold' },
+  miniCardLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase' },
   miniCardValue: { fontSize: 16, fontWeight: 'bold', marginTop: 4 },
-  
-  detailSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  statCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 15, marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0' },
-  statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  statTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statIconBg: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  statName: { fontWeight: 'bold', fontSize: 14, color: '#444' },
-  statAmount: { fontWeight: 'bold', color: '#333', fontSize: 14 },
-  
-  progressBarContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  progressBarBg: { flex: 1, height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 4 },
-  statPercText: { fontSize: 12, fontWeight: 'bold', color: '#888', width: 35 },
-  
-  insightBox: { flexDirection: 'row', padding: 15, borderRadius: 16, marginTop: 10, marginBottom: 20, alignItems: 'center', gap: 10 },
-  insightText: { flex: 1, fontSize: 13, fontWeight: '500', lineHeight: 18 },
-  
-  noDataContainer: { alignItems: 'center', paddingVertical: 40, opacity: 0.5 },
-  noDataText: { textAlign: 'center', color: '#999', marginTop: 10, fontSize: 15 }
-}); 
+  statCard: { marginBottom: 15 },
+  statHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  statName: { fontWeight: 'bold', fontSize: 14 },
+  statAmount: { color: '#333' },
+  progressBarBg: { height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%' },
+  modalOverlayDarkTranslucent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  editProfileCard: { width: '88%', backgroundColor: '#FFF', borderRadius: 24, padding: 25, elevation: 10 },
+  editProfileTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 20, textAlign: 'center' },
+  inputGroup: { marginBottom: 15 },
+  inputLabel: { fontSize: 13, fontWeight: 'bold', color: '#666', marginBottom: 6 },
+  textInput: { backgroundColor: '#F5F5F5', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#333', borderWidth: 1, borderColor: '#E0E0E0' },
+  editProfileActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 10 },
+  editProfileBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  editProfileBtnText: { fontWeight: 'bold', fontSize: 15 }
+});
