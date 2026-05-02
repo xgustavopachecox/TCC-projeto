@@ -21,6 +21,13 @@ type TransactionContextType = {
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
+const formatToBRL = (val: number) => {
+  let str = val.toFixed(2);
+  str = str.replace('.', ',');
+  str = str.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+  return str;
+};
+
 export function TransactionProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const { userId, categories } = useUser();
@@ -46,7 +53,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             id: String(t.id),
             title: t.descricao || categoryName, // Mostra a descrição do usuário, ou o nome da categoria como fallback
             type: t.tipo as 'up' | 'down',
-            amount: String(t.valor),
+            amount: formatToBRL(t.valor),
             category: categoryName, // Exibe o nome da categoria, e não o ID
             date: t.data,
             time: '12:00', // Mock de hora, caso precise
@@ -84,7 +91,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         id: String(novaTransacaoApi.id),
         title: novaTransacaoApi.descricao || categoryName,
         type: novaTransacaoApi.tipo as 'up' | 'down',
-        amount: String(novaTransacaoApi.valor),
+        amount: formatToBRL(novaTransacaoApi.valor),
         category: categoryName,
         date: novaTransacaoApi.data,
         time: tx.time,

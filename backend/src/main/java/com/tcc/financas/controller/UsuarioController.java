@@ -7,6 +7,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
+import com.tcc.financas.repository.CategoriaRepository;
+import com.tcc.financas.repository.MetaRepository;
+import com.tcc.financas.repository.OrcamentoRepository;
+import com.tcc.financas.repository.PerfilInvestidorRepository;
+import com.tcc.financas.repository.TransacaoRepository;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -14,6 +20,21 @@ public class UsuarioController {
 
     @Autowired
     private UsuarioRepository repository;
+
+    @Autowired
+    private CategoriaRepository categoriaRepository;
+
+    @Autowired
+    private MetaRepository metaRepository;
+
+    @Autowired
+    private OrcamentoRepository orcamentoRepository;
+
+    @Autowired
+    private PerfilInvestidorRepository perfilInvestidorRepository;
+
+    @Autowired
+    private TransacaoRepository transacaoRepository;
 
     @GetMapping
     public List<Usuario> listarTodos() {
@@ -43,9 +64,19 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Transactional
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id) {
         if (repository.existsById(id)) {
+            // Exclui todas as dependências do usuário primeiro
+            transacaoRepository.deleteAll(transacaoRepository.findByUsuarioId(id));
+            metaRepository.deleteAll(metaRepository.findByUsuarioId(id));
+            orcamentoRepository.deleteAll(orcamentoRepository.findByUsuarioId(id));
+            categoriaRepository.deleteAll(categoriaRepository.findByUsuarioId(id));
+            
+            perfilInvestidorRepository.findByUsuarioId(id).ifPresent(perfilInvestidorRepository::delete);
+
+            // Exclui o próprio usuário
             repository.deleteById(id);
             return ResponseEntity.noContent().build();
         }

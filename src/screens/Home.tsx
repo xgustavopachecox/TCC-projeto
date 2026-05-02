@@ -11,9 +11,11 @@ import {
   Platform,
   Dimensions,
   StatusBar,
-  TextInput
+  TextInput,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, G } from 'react-native-svg';
 
 // Importação dos Contextos
 import { useTransactions, Transaction } from '../context/TransactionContext';
@@ -21,7 +23,7 @@ import { useUser } from '../context/UserContext';
 
 export default function Home() {
   const navigation = useNavigation<any>();
-  const { userName, userPhoto, investorProfile, setInvestorProfile } = useUser();
+  const { userName, userPhoto, investorProfile, setInvestorProfile, deleteAccount } = useUser();
   
   // ==========================================
   // ESTADOS DE DATA E MODAIS
@@ -166,7 +168,6 @@ export default function Home() {
             <TouchableOpacity onPress={() => setShowBalance(!showBalance)}>
               <Ionicons name={showBalance ? "eye-outline" : "eye-off-outline"} size={24} color="#FFF" />
             </TouchableOpacity>
-            <TouchableOpacity style={{ marginLeft: 15 }}><Ionicons name="help-circle-outline" size={24} color="#FFF" /></TouchableOpacity>
           </View>
         </View>
       </View>
@@ -225,7 +226,41 @@ export default function Home() {
           activeOpacity={0.8} 
           onPress={() => setAnalysisModalVisible(true)}
         >
-          <View style={[styles.chartCircle, { borderColor: filteredTransactions.length > 0 ? PRIMARY_COLOR : '#EEE' }]}>
+          <View style={styles.chartCircleContainer}>
+            <Svg width="80" height="80" viewBox="0 0 80 80" style={{ position: 'absolute' }}>
+              <G rotation="-90" origin="40, 40">
+                {dynamicCategoryStats.length === 0 ? (
+                  <Circle cx="40" cy="40" r="36" fill="transparent" stroke="#EEE" strokeWidth="8" />
+                ) : (() => {
+                  let currentOffset = 0;
+                  const radius = 36;
+                  const circumference = 2 * Math.PI * radius;
+                  
+                  return dynamicCategoryStats.map((stat) => {
+                    const exactPercentage = (stat.rawAmount / totalExpense) * 100;
+                    const strokeDashoffset = circumference - (circumference * exactPercentage) / 100;
+                    const angle = (currentOffset / 100) * 360;
+                    currentOffset += exactPercentage;
+
+                    return (
+                      <Circle
+                        key={stat.id}
+                        cx="40"
+                        cy="40"
+                        r={radius}
+                        fill="transparent"
+                        stroke={stat.color}
+                        strokeWidth="8"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        rotation={angle}
+                        origin="40, 40"
+                      />
+                    );
+                  });
+                })()}
+              </G>
+            </Svg>
             <Text style={styles.chartPercent}>{percentSpentOfIncome}%</Text>
             <Text style={styles.chartLabel}>Gasto</Text>
           </View>
@@ -258,8 +293,8 @@ export default function Home() {
                 <View style={[styles.categoryIcon, { backgroundColor: item.type === 'up' ? '#e8f5e9' : '#ffebee' }]}>
                   <Ionicons name={item.type === 'up' ? "arrow-up" : "arrow-down"} size={20} color={item.type === 'up' ? GREEN_COLOR : RED_COLOR} />
                 </View>
-                <View>
-                  <Text style={styles.transactionTitle}>{item.title}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.transactionTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
                   <Text style={styles.transactionCategory}>{item.category} • {item.date}</Text>
                 </View>
               </View>
@@ -275,14 +310,10 @@ export default function Home() {
       <Modal visible={profileModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlayDark}>
           <View style={styles.nubankModal}>
-            <View style={styles.modalTopNav}>
+            <View style={[styles.modalTopNav, { justifyContent: 'flex-end' }]}>
               <TouchableOpacity onPress={() => setProfileModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#FFF" />
               </TouchableOpacity>
-              <View style={{ flexDirection: 'row', gap: 20 }}>
-                <TouchableOpacity><Ionicons name="help-circle-outline" size={24} color="#FFF" /></TouchableOpacity>
-                <TouchableOpacity><Ionicons name="settings-outline" size={24} color="#FFF" /></TouchableOpacity>
-              </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -292,7 +323,6 @@ export default function Home() {
                   <View style={styles.cameraBadge}><Ionicons name="camera" size={14} color="#FFF" /></View>
                 </View>
                 <Text style={styles.userNameHeader}>{userName}</Text>
-                <Text style={styles.userAccountText}>Agência 0001 • Conta 12345-6</Text>
               </View>
 
               {/* Botão de Perfil Investidor (Score Style) */}
@@ -340,6 +370,30 @@ export default function Home() {
               <TouchableOpacity style={styles.logoutBtn}>
                 <Ionicons name="log-out-outline" size={22} color="#FFF" />
                 <Text style={styles.logoutText}>Sair da aplicação</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.logoutBtn, { marginTop: 20, paddingBottom: 40 }]}
+                onPress={() => {
+                  Alert.alert(
+                    "Excluir Conta",
+                    "Tem certeza que deseja excluir sua conta? Todos os seus dados, transações, perfil e categorias serão apagados permanentemente.",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      { 
+                        text: "Excluir", 
+                        style: "destructive", 
+                        onPress: () => {
+                          setProfileModalVisible(false);
+                          deleteAccount();
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                <Text style={[styles.logoutText, { color: '#e74c3c' }]}>Excluir conta</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -500,7 +554,7 @@ const styles = StyleSheet.create({
   summaryValueDown: { fontSize: 15, fontWeight: 'bold', color: '#e74c3c' },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   chartCard: { backgroundColor: '#FFF', padding: 20, borderRadius: 20, marginBottom: 25, flexDirection: 'row', alignItems: 'center', elevation: 3 },
-  chartCircle: { width: 80, height: 80, borderRadius: 40, borderWidth: 8, justifyContent: 'center', alignItems: 'center' },
+  chartCircleContainer: { width: 80, height: 80, justifyContent: 'center', alignItems: 'center' },
   chartPercent: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   chartLabel: { fontSize: 10, color: '#888' },
   chartLegend: { flex: 1, marginLeft: 20, gap: 8 },
@@ -508,7 +562,7 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 14, color: '#666' },
   transactionItem: { backgroundColor: '#FFF', padding: 16, borderRadius: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, elevation: 2 },
-  transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1, marginRight: 10 },
   categoryIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   transactionTitle: { fontWeight: 'bold', fontSize: 15, color: '#333' },
   transactionCategory: { color: '#999', fontSize: 12 },

@@ -23,6 +23,7 @@ type UserContextType = {
   setInvestorProfile: (profile: string) => void;
   categories: Category[];
   login: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const INITIAL_CATEGORIES = [
@@ -161,6 +162,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    if (userId) {
+      try {
+        await usuarioService.deletar(userId);
+        await AsyncStorage.removeItem('@usuarioId');
+        setIsAuthenticated(false);
+        setUserId(null);
+        setCategories([]);
+      } catch (error) {
+        console.error('Erro ao excluir conta', error);
+      }
+    }
+  };
+
   return (
     <UserContext.Provider value={{ 
       isAuthenticated,
@@ -172,7 +187,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       investorProfile, 
       setInvestorProfile: handleSetInvestorProfile,
       categories, 
-      login
+      login,
+      deleteAccount
     }}>
       {children}
     </UserContext.Provider>

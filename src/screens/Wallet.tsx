@@ -161,8 +161,8 @@ export default function Wallet() {
         <View style={[styles.categoryIcon, { backgroundColor: item.type === 'up' ? '#e8f5e9' : '#ffebee' }]}>
           <Ionicons name={item.type === 'up' ? "arrow-up" : "arrow-down"} size={20} color={item.type === 'up' ? GREEN_COLOR : RED_COLOR} />
         </View>
-        <View>
-          <Text style={styles.transactionTitle}>{item.title}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.transactionTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
           <Text style={styles.transactionCategory}>{item.category} • {item.time}</Text>
         </View>
       </View>
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   sectionHeaderText: { fontSize: 14, fontWeight: '600', color: '#666' },
 
   transactionItem: { backgroundColor: '#FFF', padding: 15, borderRadius: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 },
-  transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 15, flex: 1, marginRight: 10 },
   categoryIcon: { width: 45, height: 45, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   transactionTitle: { fontWeight: 'bold', fontSize: 15, color: '#333' },
   transactionCategory: { color: '#999', fontSize: 12, marginTop: 2 },
