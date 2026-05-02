@@ -1,7 +1,11 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-// troque pelo IP local do seu computador na rede
-const API_URL = 'http://192.168.1.101/api';
+// Expo extrai o ip do computador e manda para o dispositivo móvel se conectar automaticamente
+const debuggerHost = Constants.expoConfig?.hostUri;
+const ipLocal = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
+
+const API_URL = `http://${ipLocal}:8080/api`;
 
 const api = axios.create({
   baseURL: API_URL,

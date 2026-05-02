@@ -43,9 +43,11 @@ export default function AddTransaction() {
   const currentCategories = categories.filter(c => c.type === type);
 
   useEffect(() => {
-    if (type === 'up') setSelectedCategory('i1');
-    else setSelectedCategory('e1');
-  }, [type]);
+    const cats = categories.filter(c => c.type === type);
+    if (cats.length > 0) {
+      setSelectedCategory(cats[0].id);
+    }
+  }, [type, categories]);
 
   const handleAmountChange = (text: string) => {
     let cleaned = text.replace(/\D/g, ''); 
@@ -97,10 +99,10 @@ export default function AddTransaction() {
     // Construir o objeto real da transação
     const newTx = {
       id: Math.random().toString(36).substring(7),
-      title: title, 
+      title: categoryName, 
       type: type,
       amount: amount,
-      category: categoryName,
+      category: selectedCategory,
       date: dateText,
       time: timeString,
       description: title

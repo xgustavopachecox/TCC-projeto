@@ -75,13 +75,6 @@ export default function Advisor() {
       if (newPoints >= 7) pPerfil = 'Arrojado';
       else if (newPoints >= 5) pPerfil = 'Moderado';
 
-      // =========================================================
-      // TODO: INTEGRAÇÃO BACKEND JAVA (FUTURO)
-      // Aqui é onde você fará o disparo para o servidor salvar.
-      // Exemplo: 
-      // api.post('/usuario/perfil', { perfil: pPerfil })
-      // =========================================================
-      
       setInvestorProfile(pPerfil);
       iniciarChat(pPerfil);
     }

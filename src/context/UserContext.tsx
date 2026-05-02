@@ -1,16 +1,20 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usuarioService } from '../api/services/usuarioService';
+import { categoriaService } from '../api/services/categoriaService';
+import { perfilInvestidorService } from '../api/services/perfilInvestidorService';
 
-// Tipagem para as Categorias
+// Tipagem para as Categorias no frontend
 export type Category = {
-  id: string;
+  id: string; // no backend é number, vamos mapear
   name: string;
   icon: string;
   type: 'up' | 'down';
 };
 
-// Estrutura do nosso Cofre
 type UserContextType = {
+  isAuthenticated: boolean;
+  userId: number | null;
   userName: string;
   setUserName: (name: string) => void;
   userPhoto: string;
@@ -18,82 +22,149 @@ type UserContextType = {
   investorProfile: string;
   setInvestorProfile: (profile: string) => void;
   categories: Category[];
-  addCategory: (cat: Category) => void;
+  login: () => Promise<void>;
 };
 
-// Categorias iniciais expandidas conforme o código existente nas telas
-const INITIAL_CATEGORIES: Category[] = [
-  // Categorias de Saída (down)
-  { id: 'e1', name: 'Alimentação', icon: 'fast-food-outline', type: 'down' },
-  { id: 'e2', name: 'Transporte', icon: 'car-outline', type: 'down' },
-  { id: 'e3', name: 'Contas', icon: 'document-text-outline', type: 'down' },
-  { id: 'e4', name: 'Lazer', icon: 'game-controller-outline', type: 'down' },
-  { id: 'e5', name: 'Saúde', icon: 'medkit-outline', type: 'down' },
-  { id: 'e6', name: 'Outros', icon: 'ellipsis-horizontal-circle-outline', type: 'down' },
-  // Categorias de Entrada (up)
-  { id: 'i1', name: 'Salário', icon: 'cash-outline', type: 'up' },
-  { id: 'i2', name: 'Vendas', icon: 'pricetag-outline', type: 'up' },
-  { id: 'i3', name: 'Investimentos', icon: 'trending-up-outline', type: 'up' },
-  { id: 'i4', name: 'Pix', icon: 'phone-portrait-outline', type: 'up' },
-  { id: 'i5', name: 'Outros', icon: 'ellipsis-horizontal-circle-outline', type: 'up' },
+const INITIAL_CATEGORIES = [
+  { name: 'Alimentação', icon: 'fast-food-outline', type: 'down' as const },
+  { name: 'Transporte', icon: 'car-outline', type: 'down' as const },
+  { name: 'Contas', icon: 'document-text-outline', type: 'down' as const },
+  { name: 'Lazer', icon: 'game-controller-outline', type: 'down' as const },
+  { name: 'Saúde', icon: 'medkit-outline', type: 'down' as const },
+  { name: 'Outros', icon: 'ellipsis-horizontal-circle-outline', type: 'down' as const },
+  { name: 'Salário', icon: 'cash-outline', type: 'up' as const },
+  { name: 'Vendas', icon: 'pricetag-outline', type: 'up' as const },
+  { name: 'Investimentos', icon: 'trending-up-outline', type: 'up' as const },
+  { name: 'Pix', icon: 'phone-portrait-outline', type: 'up' as const },
+  { name: 'Outros', icon: 'ellipsis-horizontal-circle-outline', type: 'up' as const },
 ];
 
-// Criação do Contexto
+const getIconByName = (name: string, type: 'up'|'down') => {
+  const cat = INITIAL_CATEGORIES.find(c => c.name === name && c.type === type);
+  return cat ? cat.icon : 'ellipsis-horizontal-circle-outline';
+};
+
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// O Componente que vai "embrulhar" a aplicação e guardar os estados
 export function UserProvider({ children }: { children: ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
   const [userName, setUserName] = useState('Pacheco');
   const [userPhoto, setUserPhoto] = useState('https://github.com/shadcn.png');
   const [investorProfile, setInvestorProfile] = useState('Não definido');
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const storedName = await AsyncStorage.getItem('@userName');
-        if (storedName) setUserName(storedName);
-
-        const storedProfile = await AsyncStorage.getItem('@investorProfile');
-        if (storedProfile) setInvestorProfile(storedProfile);
-
-        const storedCategories = await AsyncStorage.getItem('@categories');
-        if (storedCategories) {
-          setCategories(JSON.parse(storedCategories));
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error);
-      }
-    };
-    loadUserData();
-  }, []);
-
-  const addCategory = async (cat: Category) => {
-    const newCategories = [...categories, cat];
-    setCategories(newCategories);
+  const login = async () => {
     try {
-      await AsyncStorage.setItem('@categories', JSON.stringify(newCategories));
+      let currentUserId: number;
+      const storedId = await AsyncStorage.getItem('@usuarioId');
+
+      if (storedId) {
+        currentUserId = parseInt(storedId, 10);
+        const user = await usuarioService.buscarPorId(currentUserId);
+        setUserName(user.nome);
+        
+        try {
+          const profile = await perfilInvestidorService.buscarPorUsuarioId(currentUserId);
+          if (profile) setInvestorProfile(profile.tipoPerfil);
+        } catch (e) {
+          // não tem perfil ainda
+        }
+      } else {
+        // Criar novo usuário na API
+        const newUser = await usuarioService.criar({
+          nome: 'Usuário',
+          pinSeguranca: 'auth-local'
+        });
+        currentUserId = newUser.id!;
+        await AsyncStorage.setItem('@usuarioId', currentUserId.toString());
+        setUserName(newUser.nome);
+
+        // Criar as categorias base para esse novo usuário no banco
+        for (const cat of INITIAL_CATEGORIES) {
+          await categoriaService.criar({
+            nome: cat.name,
+            tipo: cat.type,
+            usuario: { id: currentUserId }
+          });
+        }
+      }
+
+      setUserId(currentUserId);
+
+      // Buscar categorias do banco
+      let apiCategories = await categoriaService.listarTodos(currentUserId);
+
+      // Se as categorias vierem vazias (ex: deu erro na primeira criação), tenta criá-las de novo
+      if (apiCategories.length === 0) {
+        for (const cat of INITIAL_CATEGORIES) {
+          await categoriaService.criar({
+            nome: cat.name,
+            tipo: cat.type,
+            usuario: { id: currentUserId }
+          });
+        }
+        apiCategories = await categoriaService.listarTodos(currentUserId);
+      }
+      const mappedCategories: Category[] = apiCategories.map(c => ({
+        id: String(c.id),
+        name: c.nome,
+        type: c.tipo as 'up' | 'down',
+        icon: getIconByName(c.nome, c.tipo as 'up' | 'down')
+      }));
+      
+      setCategories(mappedCategories);
+      setIsAuthenticated(true);
     } catch (error) {
-      console.error('Erro ao salvar categorias:', error);
+      console.error('Erro no login/sincronização com backend:', error);
+      throw error; // Repassa o erro para a tela de login se precisar
     }
   };
 
   const handleSetUserName = async (name: string) => {
     setUserName(name);
-    try {
-      await AsyncStorage.setItem('@userName', name);
-    } catch (error) {}
+    if (userId) {
+      try {
+        await usuarioService.atualizar(userId, { nome: name, pinSeguranca: 'auth-local' });
+      } catch (error) {
+        console.error('Erro ao atualizar nome no backend', error);
+      }
+    }
   };
 
   const handleSetInvestorProfile = async (profile: string) => {
     setInvestorProfile(profile);
-    try {
-      await AsyncStorage.setItem('@investorProfile', profile);
-    } catch (error) {}
+    if (userId) {
+      try {
+        // Verifica se já existe
+        try {
+          const existing = await perfilInvestidorService.buscarPorUsuarioId(userId);
+          if (existing && existing.id) {
+            await perfilInvestidorService.atualizar(existing.id, {
+              tipoPerfil: profile,
+              dataAnalise: new Date().toISOString(),
+              usuario: { id: userId }
+            });
+            return;
+          }
+        } catch (e) {}
+
+        // Se não existe, cria
+        await perfilInvestidorService.criar({
+          tipoPerfil: profile,
+          dataAnalise: new Date().toISOString(),
+          usuario: { id: userId }
+        });
+      } catch (error) {
+        console.error('Erro ao salvar perfil de investidor', error);
+      }
+    }
   };
 
   return (
     <UserContext.Provider value={{ 
+      isAuthenticated,
+      userId,
       userName, 
       setUserName: handleSetUserName, 
       userPhoto, 
@@ -101,20 +172,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       investorProfile, 
       setInvestorProfile: handleSetInvestorProfile,
       categories, 
-      addCategory 
+      login
     }}>
       {children}
     </UserContext.Provider>
   );
 }
 
-// O Hook (A ferramenta mágica) que os outros ecrãs vão usar para ir buscar os dados
 export function useUser() {
   const context = useContext(UserContext);
-  
   if (context === undefined) {
     throw new Error('useUser deve ser usado dentro de um UserProvider');
   }
-  
   return context;
 }

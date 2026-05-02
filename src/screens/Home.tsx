@@ -202,7 +202,7 @@ export default function Home() {
                 </View>
                 <View>
                   <Text style={styles.summaryLabel}>Entradas</Text>
-                  <Text style={styles.summaryValueUp}>R$ {formatAmount(totalIncome)}</Text>
+                  <Text style={styles.summaryValueUp}>{showBalance ? `R$ ${formatAmount(totalIncome)}` : '••••'}</Text>
                 </View>
              </View>
 
@@ -212,7 +212,7 @@ export default function Home() {
                 </View>
                 <View>
                   <Text style={styles.summaryLabel}>Saídas</Text>
-                  <Text style={styles.summaryValueDown}>R$ {formatAmount(totalExpense)}</Text>
+                  <Text style={styles.summaryValueDown}>{showBalance ? `R$ ${formatAmount(totalExpense)}` : '••••'}</Text>
                 </View>
              </View>
           </View>
@@ -264,7 +264,7 @@ export default function Home() {
                 </View>
               </View>
               <Text style={[styles.transactionAmount, { color: item.type === 'up' ? GREEN_COLOR : RED_COLOR }]}>
-                {item.type === 'up' ? '+ R$ ' : '- R$ '}{item.amount}
+                {showBalance ? (item.type === 'up' ? '+ R$ ' : '- R$ ') + item.amount : '••••'}
               </Text>
             </View>
           ))

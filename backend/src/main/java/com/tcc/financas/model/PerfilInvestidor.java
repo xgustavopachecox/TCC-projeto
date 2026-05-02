@@ -18,6 +18,7 @@ public class PerfilInvestidor {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private Usuario usuario;
 
     public PerfilInvestidor() {}

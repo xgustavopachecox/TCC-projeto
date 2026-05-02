@@ -44,17 +44,25 @@ public class TransacaoController {
     public ResponseEntity<Transacao> criar(@RequestBody Transacao transacao) {
         if (transacao.getUsuario() != null && transacao.getUsuario().getId() != null) {
             Usuario usuario = usuarioRepository.findById(transacao.getUsuario().getId()).orElse(null);
-            if (usuario == null) return ResponseEntity.badRequest().build();
+            if (usuario == null) {
+                System.out.println("DEBUG: Usuario nulo no DB");
+                return ResponseEntity.badRequest().build();
+            }
             transacao.setUsuario(usuario);
         } else {
+            System.out.println("DEBUG: Usuario ID recebido nulo");
             return ResponseEntity.badRequest().build();
         }
 
         if (transacao.getCategoria() != null && transacao.getCategoria().getId() != null) {
             Categoria categoria = categoriaRepository.findById(transacao.getCategoria().getId()).orElse(null);
-            if (categoria == null) return ResponseEntity.badRequest().build();
+            if (categoria == null) {
+                System.out.println("DEBUG: Categoria nula no DB");
+                return ResponseEntity.badRequest().build();
+            }
             transacao.setCategoria(categoria);
         } else {
+            System.out.println("DEBUG: Categoria ID recebido nulo. Categoria Obj: " + transacao.getCategoria());
             return ResponseEntity.badRequest().build();
         }
 
