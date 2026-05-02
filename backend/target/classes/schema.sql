@@ -1,7 +1,9 @@
 CREATE TABLE IF NOT EXISTS Usuario (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT NOT NULL,
-    pin_seguranca TEXT NOT NULL
+    pin_seguranca TEXT NOT NULL,
+    data_nascimento TEXT,
+    salario_atual REAL
 );
 
 CREATE TABLE IF NOT EXISTS Categoria (

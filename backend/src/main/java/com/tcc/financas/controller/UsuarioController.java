@@ -59,6 +59,12 @@ public class UsuarioController {
                 .map(usuario -> {
                     usuario.setNome(usuarioAtualizado.getNome());
                     usuario.setPinSeguranca(usuarioAtualizado.getPinSeguranca());
+                    if (usuarioAtualizado.getDataNascimento() != null) {
+                        usuario.setDataNascimento(usuarioAtualizado.getDataNascimento());
+                    }
+                    if (usuarioAtualizado.getSalarioAtual() != null) {
+                        usuario.setSalarioAtual(usuarioAtualizado.getSalarioAtual());
+                    }
                     return ResponseEntity.ok(repository.save(usuario));
                 })
                 .orElse(ResponseEntity.notFound().build());

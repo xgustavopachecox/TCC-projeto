@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // 1. IMPORTAMOS O NOSSO COFRE CENTRAL
-import { useTransactions } from '../context/TransactionContext'; 
+import { useTransactions } from '../context/TransactionContext';
 import { useUser } from '../context/UserContext';
 
 const hoje = new Date();
@@ -27,12 +27,12 @@ const dataAtual = `${dia}/${mes}/${ano}`;
 export default function AddTransaction() {
   const navigation = useNavigation<any>();
   const PRIMARY_COLOR = '#6200ee';
-  
+
   // 2. PUXAMOS A FUNÇÃO DE GUARDAR DO COFRE
   const { addTransaction } = useTransactions();
   const { categories } = useUser();
-  
-  const [type, setType] = useState<'down' | 'up'>('down'); 
+
+  const [type, setType] = useState<'down' | 'up'>('down');
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('e1');
@@ -50,7 +50,7 @@ export default function AddTransaction() {
   }, [type, categories]);
 
   const handleAmountChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, ''); 
+    let cleaned = text.replace(/\D/g, '');
     if (cleaned === '') {
       setAmount('');
       return;
@@ -66,11 +66,11 @@ export default function AddTransaction() {
     let masked = cleaned;
     if (cleaned.length > 2) masked = cleaned.replace(/^(\d{2})(\d)/, '$1/$2');
     if (cleaned.length > 4) masked = masked.replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
-    setDateText(masked.substring(0, 10)); 
+    setDateText(masked.substring(0, 10));
   };
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowPicker(Platform.OS === 'ios'); 
+    setShowPicker(Platform.OS === 'ios');
     if (selectedDate) {
       setDateObj(selectedDate);
       const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -99,7 +99,7 @@ export default function AddTransaction() {
     // Construir o objeto real da transação
     const newTx = {
       id: Math.random().toString(36).substring(7),
-      title: categoryName, 
+      title: categoryName,
       type: type,
       amount: amount,
       category: selectedCategory,
@@ -109,7 +109,7 @@ export default function AddTransaction() {
     };
 
     Alert.alert(
-      'Sucesso!', 
+      'Sucesso!',
       'Transação adicionada com sucesso.',
       [
         {
@@ -121,7 +121,7 @@ export default function AddTransaction() {
             setAmount('');
             setTitle('');
             setDateText(dataAtual);
-            
+
             // 4. NAVEGAMOS DE VOLTA (Sem precisar de enviar parâmetros!)
             navigation.navigate('Início');
           }
@@ -131,7 +131,11 @@ export default function AddTransaction() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
         <View style={[styles.header, { backgroundColor: PRIMARY_COLOR }]}>
           <Text style={styles.headerTitle}>Nova {type === 'up' ? 'Entrada' : 'Saída'}</Text>
@@ -155,8 +159,8 @@ export default function AddTransaction() {
               <Text style={styles.inputLabel}>Categoria</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
                 {currentCategories.map((cat) => (
-                  <TouchableOpacity 
-                    key={cat.id} 
+                  <TouchableOpacity
+                    key={cat.id}
                     style={[styles.categoryChip, selectedCategory === cat.id && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]}
                     onPress={() => handleCategoryPress(cat.id)}
                   >

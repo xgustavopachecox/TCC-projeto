@@ -35,10 +35,19 @@ export default function Home() {
   const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
 
-  // Estados temporários para edição do perfil
-  const { setUserName, setUserPhoto } = useUser();
+  const { updateUserProfile, userBirthDate, userSalary } = useUser();
   const [tempName, setTempName] = useState(userName);
   const [tempPhotoUrl, setTempPhotoUrl] = useState(userPhoto);
+  const [tempBirth, setTempBirth] = useState(userBirthDate);
+  const [tempSalary, setTempSalary] = useState(userSalary);
+
+  const handleBirthChange = (text: string) => {
+    let cleaned = text.replace(/\D/g, '');
+    let masked = cleaned;
+    if (cleaned.length > 2) masked = cleaned.replace(/^(\d{2})(\d)/, '$1/$2');
+    if (cleaned.length > 4) masked = masked.replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
+    setTempBirth(masked.substring(0, 10));
+  };
 
   const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const years = [2024, 2025, 2026, 2027];
@@ -330,9 +339,7 @@ export default function Home() {
                 style={styles.scoreCard}
                 onPress={() => {
                   setProfileModalVisible(false);
-                  // Reseta o perfil mockado para forçar o quiz aparecer novamente
-                  if (investorProfile !== 'Não definido') setInvestorProfile('Não definido');
-                  navigation.navigate('I.A');
+                  navigation.navigate('Quiz');
                 }}
               >
                 <View style={styles.scoreLeft}>
@@ -351,7 +358,13 @@ export default function Home() {
 
               <Text style={styles.menuLabel}>A minha conta</Text>
               
-              <TouchableOpacity style={styles.menuRow} onPress={() => { setTempName(userName); setTempPhotoUrl(userPhoto); setEditProfileModalVisible(true); }}>
+              <TouchableOpacity style={styles.menuRow} onPress={() => { 
+                setTempName(userName); 
+                setTempPhotoUrl(userPhoto); 
+                setTempBirth(userBirthDate);
+                setTempSalary(userSalary);
+                setEditProfileModalVisible(true); 
+              }}>
                 <View style={styles.menuRowLeft}>
                   <Ionicons name="person-outline" size={22} color="#FFF" />
                   <Text style={styles.menuRowText}>Editar Perfil</Text>
@@ -503,6 +516,31 @@ export default function Home() {
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Data de Nascimento</Text>
+              <TextInput 
+                style={styles.textInput} 
+                value={tempBirth} 
+                onChangeText={handleBirthChange} 
+                placeholder="DD/MM/AAAA"
+                keyboardType="numeric"
+                maxLength={10}
+                placeholderTextColor="#A0A0A0"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Salário Atual (opcional)</Text>
+              <TextInput 
+                style={styles.textInput} 
+                value={tempSalary} 
+                onChangeText={setTempSalary} 
+                placeholder="Ex: 5000.00"
+                keyboardType="numeric"
+                placeholderTextColor="#A0A0A0"
+              />
+            </View>
+
             <View style={styles.editProfileActions}>
               <TouchableOpacity 
                 style={[styles.editProfileBtn, { backgroundColor: '#F0F0F0' }]} 
@@ -513,8 +551,12 @@ export default function Home() {
               <TouchableOpacity 
                 style={[styles.editProfileBtn, { backgroundColor: '#6200ee' }]} 
                 onPress={() => {
-                  if (tempName) setUserName(tempName);
-                  if (tempPhotoUrl) setUserPhoto(tempPhotoUrl);
+                  updateUserProfile({
+                    nome: tempName,
+                    photoUrl: tempPhotoUrl,
+                    dataNascimento: tempBirth,
+                    salarioAtual: tempSalary ? tempSalary.replace(',', '.') : ''
+                  });
                   setEditProfileModalVisible(false);
                 }}
               >

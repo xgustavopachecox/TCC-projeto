@@ -16,6 +16,12 @@ public class Usuario {
     @Column(name = "pin_seguranca", nullable = false)
     private String pinSeguranca;
 
+    @Column(name = "data_nascimento")
+    private String dataNascimento;
+
+    @Column(name = "salario_atual")
+    private Double salarioAtual;
+
     // Construtores, Getters e Setters
 
     public Usuario() {}
@@ -42,5 +48,21 @@ public class Usuario {
 
     public void setPinSeguranca(String pinSeguranca) {
         this.pinSeguranca = pinSeguranca;
+    }
+
+    public String getDataNascimento() {
+        return dataNascimento;
+    }
+
+    public void setDataNascimento(String dataNascimento) {
+        this.dataNascimento = dataNascimento;
+    }
+
+    public Double getSalarioAtual() {
+        return salarioAtual;
+    }
+
+    public void setSalarioAtual(Double salarioAtual) {
+        this.salarioAtual = salarioAtual;
     }
 }

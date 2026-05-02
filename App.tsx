@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import AppNavigator from './src/navigation/AppNavigator';
+import WelcomeNavigator from './src/navigation/WelcomeNavigator';
+import { NavigationContainer } from '@react-navigation/native';
 import Login from './src/screens/Login';
 
 // IMPORTAR OS COFRES AQUI
@@ -11,7 +13,11 @@ import { GoalProvider } from './src/context/GoalContext';
 import { UserProvider, useUser } from './src/context/UserContext'; 
 
 const MainApp = () => {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, isFirstAccess, isLoading } = useUser();
+
+  if (isLoading) {
+    return null; // Evita piscar o login no primeiro acesso
+  }
 
   if (!isAuthenticated) {
     return (
@@ -26,7 +32,9 @@ const MainApp = () => {
     <TransactionProvider>
       <GoalProvider>
         <StatusBar style="light" backgroundColor="#6200ee" /> 
-        <AppNavigator />
+        <NavigationContainer>
+          {isFirstAccess ? <WelcomeNavigator /> : <AppNavigator />}
+        </NavigationContainer>
       </GoalProvider>
     </TransactionProvider>
   );

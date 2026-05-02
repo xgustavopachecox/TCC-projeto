@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useUser } from '../context/UserContext';
 import { useTransactions } from '../context/TransactionContext';
 
@@ -20,13 +21,10 @@ type Message = {
 };
 
 export default function Advisor() {
+  const navigation = useNavigation<any>();
   const { userName, investorProfile, setInvestorProfile } = useUser();
   const { transactions } = useTransactions();
   
-  // Quiz State
-  const [quizStep, setQuizStep] = useState(0);
-  const [points, setPoints] = useState(0);
-
   // Chat State
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -34,51 +32,6 @@ export default function Advisor() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const PRIMARY_COLOR = '#6200ee';
-
-  // --- QUIZ DATA ---
-  const questions = [
-    {
-      question: "O que você faria se seus investimentos caíssem 20% em um mês?",
-      options: [
-        { text: "Venderia tudo desesperadamente", value: 1 },
-        { text: "Aguardaria o mercado se recuperar", value: 2 },
-        { text: "Compraria mais aproveitando a queda", value: 3 }
-      ]
-    },
-    {
-      question: "Qual o seu principal objetivo ao investir?",
-      options: [
-        { text: "Proteger meu dinheiro da inflação", value: 1 },
-        { text: "Fazer meu patrimônio crescer aos poucos", value: 2 },
-        { text: "Multiplicar meu dinheiro rapidamente", value: 3 }
-      ]
-    },
-    {
-      question: "Por quanto tempo você pretende deixar seu dinheiro investido?",
-      options: [
-        { text: "Menos de 1 ano (posso precisar do dinheiro)", value: 1 },
-        { text: "De 1 a 5 anos", value: 2 },
-        { text: "Mais de 5 anos", value: 3 }
-      ]
-    }
-  ];
-
-  const handleAnswer = (value: number) => {
-    const newPoints = points + value;
-    setPoints(newPoints);
-
-    if (quizStep < questions.length - 1) {
-      setQuizStep(quizStep + 1);
-    } else {
-      // Determinar Perfil e Salvar
-      let pPerfil = 'Conservador';
-      if (newPoints >= 7) pPerfil = 'Arrojado';
-      else if (newPoints >= 5) pPerfil = 'Moderado';
-
-      setInvestorProfile(pPerfil);
-      iniciarChat(pPerfil);
-    }
-  };
 
   // --- CHAT INITIALIZATION ---
   const iniciarChat = (perfil: string) => {
@@ -106,11 +59,7 @@ export default function Advisor() {
   };
 
   useEffect(() => {
-    if (investorProfile === 'Não definido') {
-      setQuizStep(0);
-      setPoints(0);
-      setMessages([]);
-    } else if (messages.length === 0) {
+    if (investorProfile !== 'Não definido' && messages.length === 0) {
       iniciarChat(investorProfile);
     }
   }, [investorProfile]);
@@ -152,25 +101,23 @@ export default function Advisor() {
     }, 2000);
   };
 
-  // --- RENDERIZAÇÃO: MODO QUIZ ---
+  // --- RENDERIZAÇÃO: MODO BLOQUEADO ---
   if (investorProfile === 'Não definido') {
     return (
       <View style={styles.container}>
         <View style={styles.headerQuiz}>
-          <Ionicons name="sparkles" size={40} color="#FFF" style={{marginBottom: 10}} />
+          <Ionicons name="sparkles" size={60} color="#FFF" style={{marginBottom: 20}} />
           <Text style={styles.titleQuiz}>Bem-vindo à TCC-AI</Text>
-          <Text style={styles.subtitleQuiz}>Para eu te dar dicas personalizadas sobre ativos e finanças, preciso entender seu Perfil de Investidor.</Text>
+          <Text style={styles.subtitleQuiz}>
+            Para desbloquear a inteligência artificial e receber dicas personalizadas sobre ativos e finanças, preciso entender o seu Perfil de Investidor.
+          </Text>
         </View>
 
         <View style={styles.quizCard}>
-          <Text style={styles.quizCount}>Pergunta {quizStep + 1} de {questions.length}</Text>
-          <Text style={styles.questionText}>{questions[quizStep].question}</Text>
-
-          {questions[quizStep].options.map((opt, idx) => (
-            <TouchableOpacity key={idx} style={styles.optionButton} onPress={() => handleAnswer(opt.value)}>
-              <Text style={styles.optionText}>{opt.text}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={styles.startQuizButton} onPress={() => navigation.navigate('Quiz')}>
+            <Text style={styles.startQuizButtonText}>Traçar meu Perfil de Investidor</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFF" />
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -189,9 +136,6 @@ export default function Advisor() {
             <Text style={styles.chatSubtitle}>Perfil detectado: {investorProfile}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => { setInvestorProfile('Não definido'); setQuizStep(0); setPoints(0); setMessages([]); }}>
-          <Ionicons name="refresh" size={24} color="#FFF" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -241,14 +185,12 @@ export default function Advisor() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#6200ee' },
-  headerQuiz: { paddingTop: 80, paddingHorizontal: 30, alignItems: 'center' },
-  titleQuiz: { fontSize: 26, fontWeight: 'bold', color: '#FFF', marginBottom: 10, textAlign: 'center' },
-  subtitleQuiz: { fontSize: 16, color: '#E0E0E0', textAlign: 'center', lineHeight: 22 },
-  quizCard: { backgroundColor: '#FFF', flex: 1, marginTop: 40, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30, elevation: 10 },
-  quizCount: { color: '#6200ee', fontWeight: 'bold', textTransform: 'uppercase', fontSize: 12, marginBottom: 10 },
-  questionText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 30, lineHeight: 28 },
-  optionButton: { backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 15, padding: 20, marginBottom: 15 },
-  optionText: { fontSize: 16, color: '#444', fontWeight: '500' },
+  headerQuiz: { paddingTop: 100, paddingHorizontal: 30, alignItems: 'center' },
+  titleQuiz: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 15, textAlign: 'center' },
+  subtitleQuiz: { fontSize: 16, color: '#E0E0E0', textAlign: 'center', lineHeight: 24 },
+  quizCard: { backgroundColor: '#FFF', flex: 1, marginTop: 40, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30, elevation: 10, justifyContent: 'center', alignItems: 'center' },
+  startQuizButton: { flexDirection: 'row', backgroundColor: '#6200ee', paddingVertical: 18, paddingHorizontal: 25, borderRadius: 20, alignItems: 'center', gap: 10, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  startQuizButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 
   containerChat: { flex: 1, backgroundColor: '#F2F4F7', paddingBottom: 90 /* height of nav bar */ },
   chatHeader: { backgroundColor: '#6200ee', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 5 },

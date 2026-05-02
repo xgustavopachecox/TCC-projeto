@@ -17,13 +17,21 @@ type UserContextType = {
   userId: number | null;
   userName: string;
   setUserName: (name: string) => void;
+  userBirthDate: string;
+  setUserBirthDate: (date: string) => void;
+  userSalary: string;
+  setUserSalary: (salary: string) => void;
   userPhoto: string;
   setUserPhoto: (photo: string) => void;
+  updateUserProfile: (data: { nome?: string, dataNascimento?: string, salarioAtual?: string, photoUrl?: string }) => Promise<void>;
   investorProfile: string;
   setInvestorProfile: (profile: string) => void;
   categories: Category[];
   login: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  isFirstAccess: boolean;
+  setIsFirstAccess: (val: boolean) => void;
+  isLoading: boolean;
 };
 
 const INITIAL_CATEGORIES = [
@@ -51,9 +59,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [userName, setUserName] = useState('Pacheco');
+  const [userBirthDate, setUserBirthDate] = useState('');
+  const [userSalary, setUserSalary] = useState('');
   const [userPhoto, setUserPhoto] = useState('https://github.com/shadcn.png');
   const [investorProfile, setInvestorProfile] = useState('Não definido');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isFirstAccess, setIsFirstAccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkInitialState = async () => {
+      const storedId = await AsyncStorage.getItem('@usuarioId');
+      if (!storedId) {
+        // Primeiro acesso real (sem conta local)
+        // Auto-login para ir direto ao Welcome
+        await login();
+      }
+      setIsLoading(false);
+    };
+    checkInitialState();
+  }, []);
 
   const login = async () => {
     try {
@@ -64,6 +89,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         currentUserId = parseInt(storedId, 10);
         const user = await usuarioService.buscarPorId(currentUserId);
         setUserName(user.nome);
+        if (user.dataNascimento) setUserBirthDate(user.dataNascimento);
+        if (user.salarioAtual) setUserSalary(String(user.salarioAtual));
         
         try {
           const profile = await perfilInvestidorService.buscarPorUsuarioId(currentUserId);
@@ -80,6 +107,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         currentUserId = newUser.id!;
         await AsyncStorage.setItem('@usuarioId', currentUserId.toString());
         setUserName(newUser.nome);
+        setIsFirstAccess(true); // Indica que é a primeira vez
 
         // Criar as categorias base para esse novo usuário no banco
         for (const cat of INITIAL_CATEGORIES) {
@@ -122,15 +150,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const handleSetUserName = async (name: string) => {
-    setUserName(name);
+  const updateUserProfile = async (data: { nome?: string, dataNascimento?: string, salarioAtual?: string, photoUrl?: string }) => {
+    if (data.nome !== undefined) setUserName(data.nome);
+    if (data.dataNascimento !== undefined) setUserBirthDate(data.dataNascimento);
+    if (data.salarioAtual !== undefined) setUserSalary(data.salarioAtual);
+    if (data.photoUrl !== undefined) setUserPhoto(data.photoUrl);
+
     if (userId) {
       try {
-        await usuarioService.atualizar(userId, { nome: name, pinSeguranca: 'auth-local' });
+        const payload = {
+          nome: data.nome !== undefined ? data.nome : userName,
+          pinSeguranca: 'auth-local',
+          dataNascimento: data.dataNascimento !== undefined ? data.dataNascimento : userBirthDate,
+          salarioAtual: data.salarioAtual !== undefined ? (data.salarioAtual ? parseFloat(data.salarioAtual) : undefined) : (userSalary ? parseFloat(userSalary) : undefined)
+        };
+        await usuarioService.atualizar(userId, payload);
       } catch (error) {
-        console.error('Erro ao atualizar nome no backend', error);
+        console.error('Erro ao atualizar perfil no backend', error);
       }
     }
+  };
+
+  const handleSetUserName = async (name: string) => {
+    setUserName(name);
+  };
+
+  const handleSetUserBirthDate = async (date: string) => {
+    setUserBirthDate(date);
+  };
+
+  const handleSetUserSalary = async (salary: string) => {
+    setUserSalary(salary);
   };
 
   const handleSetInvestorProfile = async (profile: string) => {
@@ -168,8 +218,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
         await usuarioService.deletar(userId);
         await AsyncStorage.removeItem('@usuarioId');
         setIsAuthenticated(false);
+        setIsFirstAccess(false);
         setUserId(null);
         setCategories([]);
+        setUserBirthDate('');
+        setUserSalary('');
+        setInvestorProfile('Não definido');
       } catch (error) {
         console.error('Erro ao excluir conta', error);
       }
@@ -182,13 +236,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
       userId,
       userName, 
       setUserName: handleSetUserName, 
+      userBirthDate,
+      setUserBirthDate: handleSetUserBirthDate,
+      userSalary,
+      setUserSalary: handleSetUserSalary,
       userPhoto, 
       setUserPhoto, 
+      updateUserProfile,
       investorProfile, 
       setInvestorProfile: handleSetInvestorProfile,
       categories, 
       login,
-      deleteAccount
+      deleteAccount,
+      isFirstAccess,
+      setIsFirstAccess,
+      isLoading
     }}>
       {children}
     </UserContext.Provider>

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 
@@ -10,6 +9,7 @@ import Wallet from '../screens/Wallet';
 import Goals from '../screens/Goals';   
 import Advisor from '../screens/Advisor'; 
 import AddTransaction from '../screens/AddTransaction'
+import Quiz from '../screens/Quiz';
 
 const Tab = createBottomTabNavigator();
 
@@ -38,7 +38,6 @@ const CustomTabBarButton = ({ children, onPress }: any) => (
 
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
@@ -103,8 +102,16 @@ export default function AppNavigator() {
           )
         }}/>
 
+        <Tab.Screen 
+          name="Quiz" 
+          component={Quiz} 
+          options={{ 
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' }
+          }} 
+        />
+
       </Tab.Navigator>
-    </NavigationContainer>
   );
 }
 

@@ -4,6 +4,8 @@ export interface Usuario {
   id?: number;
   nome: string;
   pinSeguranca: string;
+  dataNascimento?: string;
+  salarioAtual?: number;
 }
 
 export const usuarioService = {
