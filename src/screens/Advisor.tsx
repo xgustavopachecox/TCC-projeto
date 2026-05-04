@@ -185,8 +185,12 @@ Regras cruciais:
 
   // --- RENDERIZAÇÃO: MODO CHAT IA ---
   return (
-    <KeyboardAvoidingView style={styles.containerChat} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Modal visible={isTyping} transparent={true} animationType="fade">
+    <View style={styles.containerChat}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Modal visible={isTyping} transparent={true} animationType="fade">
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center'}}>
           <View style={{backgroundColor: '#FFF', padding: 25, borderRadius: 20, alignItems: 'center', elevation: 10}}>
             <ActivityIndicator size="large" color="#6200ee" />
@@ -275,7 +279,8 @@ Regras cruciais:
           <Ionicons name="send" size={18} color="#FFF" style={{marginLeft: 2}} />
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -288,7 +293,7 @@ const styles = StyleSheet.create({
   startQuizButton: { flexDirection: 'row', backgroundColor: '#6200ee', paddingVertical: 18, paddingHorizontal: 25, borderRadius: 20, alignItems: 'center', gap: 10, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   startQuizButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 
-  containerChat: { flex: 1, backgroundColor: '#F2F4F7', paddingBottom: 90 /* height of nav bar */ },
+  containerChat: { flex: 1, backgroundColor: '#F2F4F7', marginBottom: 90 /* height of nav bar */ },
   chatHeader: { backgroundColor: '#6200ee', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 5 },
   aiAvatar: { width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   chatTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },

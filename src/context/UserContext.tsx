@@ -61,7 +61,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState('Pacheco');
   const [userBirthDate, setUserBirthDate] = useState('');
   const [userSalary, setUserSalary] = useState('');
-  const [userPhoto, setUserPhoto] = useState('https://github.com/shadcn.png');
+  const [userPhoto, setUserPhoto] = useState('');
   const [investorProfile, setInvestorProfile] = useState('Não definido');
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFirstAccess, setIsFirstAccess] = useState(false);
@@ -92,6 +92,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (user.dataNascimento) setUserBirthDate(user.dataNascimento);
         if (user.salarioAtual) setUserSalary(String(user.salarioAtual));
         
+        const savedPhoto = await AsyncStorage.getItem(`@userPhoto_${currentUserId}`);
+        if (savedPhoto) setUserPhoto(savedPhoto);
+        
         try {
           const profile = await perfilInvestidorService.buscarPorUsuarioId(currentUserId);
           if (profile) setInvestorProfile(profile.tipoPerfil);
@@ -107,6 +110,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         currentUserId = newUser.id!;
         await AsyncStorage.setItem('@usuarioId', currentUserId.toString());
         setUserName(newUser.nome);
+        setUserPhoto('');
         setIsFirstAccess(true); // Indica que é a primeira vez
 
         // Criar as categorias base para esse novo usuário no banco
@@ -154,7 +158,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (data.nome !== undefined) setUserName(data.nome);
     if (data.dataNascimento !== undefined) setUserBirthDate(data.dataNascimento);
     if (data.salarioAtual !== undefined) setUserSalary(data.salarioAtual);
-    if (data.photoUrl !== undefined) setUserPhoto(data.photoUrl);
+    if (data.photoUrl !== undefined) {
+      setUserPhoto(data.photoUrl);
+      if (userId) {
+        if (data.photoUrl === '') {
+          AsyncStorage.removeItem(`@userPhoto_${userId}`);
+        } else {
+          AsyncStorage.setItem(`@userPhoto_${userId}`, data.photoUrl);
+        }
+      }
+    }
 
     if (userId) {
       try {
@@ -217,6 +230,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       try {
         await usuarioService.deletar(userId);
         await AsyncStorage.removeItem('@usuarioId');
+        await AsyncStorage.removeItem(`@userPhoto_${userId}`);
+        await AsyncStorage.removeItem(`@agreedToAIDisclaimer_${userId}`);
         setIsAuthenticated(false);
         setIsFirstAccess(false);
         setUserId(null);

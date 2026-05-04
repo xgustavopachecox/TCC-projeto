@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 
 // Importação dos Contextos
 import { useTransactions, Transaction } from '../context/TransactionContext';
@@ -154,6 +155,41 @@ export default function Home() {
     setViewDate(newDate);
   };
 
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert("Permissão necessária", "Você precisa permitir o acesso à galeria para adicionar uma foto.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      updateUserProfile({ photoUrl: result.assets[0].uri });
+    }
+  };
+
+  const handleImageAction = () => {
+    if (userPhoto && userPhoto.trim() !== '') {
+      Alert.alert(
+        "Foto de Perfil",
+        "O que deseja fazer?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Remover Foto", style: "destructive", onPress: () => updateUserProfile({ photoUrl: '' }) },
+          { text: "Alterar Foto", onPress: pickImage }
+        ]
+      );
+    } else {
+      pickImage();
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY_COLOR} />
@@ -166,7 +202,13 @@ export default function Home() {
               onPress={() => setProfileModalVisible(true)}
               style={styles.profileButton}
             >
-              <Image source={{ uri: userPhoto }} style={styles.avatar} />
+              {userPhoto && userPhoto.trim() !== '' ? (
+                <Image source={{ uri: userPhoto }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: '#7F5DF0', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ color: '#FFF', fontSize: 22, fontWeight: 'bold' }}>{userName ? userName.charAt(0).toUpperCase() : 'U'}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.greeting}>Olá, {userName}</Text>
@@ -327,10 +369,16 @@ export default function Home() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.userProfileSection}>
-                <View style={styles.avatarLargeContainer}>
-                  <Image source={{ uri: userPhoto }} style={styles.avatarLarge} />
+                <TouchableOpacity style={styles.avatarLargeContainer} onPress={handleImageAction}>
+                  {userPhoto && userPhoto.trim() !== '' ? (
+                    <Image source={{ uri: userPhoto }} style={styles.avatarLarge} />
+                  ) : (
+                    <View style={[styles.avatarLarge, { backgroundColor: '#6200ee', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ color: '#FFF', fontSize: 40, fontWeight: 'bold' }}>{userName ? userName.charAt(0).toUpperCase() : 'U'}</Text>
+                    </View>
+                  )}
                   <View style={styles.cameraBadge}><Ionicons name="camera" size={14} color="#FFF" /></View>
-                </View>
+                </TouchableOpacity>
                 <Text style={styles.userNameHeader}>{userName}</Text>
               </View>
 
@@ -378,11 +426,6 @@ export default function Home() {
                   <Text style={styles.menuRowText}>Configurar Categorias</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#333" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.logoutBtn}>
-                <Ionicons name="log-out-outline" size={22} color="#FFF" />
-                <Text style={styles.logoutText}>Sair da aplicação</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -505,18 +548,6 @@ export default function Home() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>URL da sua Foto (opcional)</Text>
-              <TextInput 
-                style={styles.textInput} 
-                value={tempPhotoUrl} 
-                onChangeText={setTempPhotoUrl} 
-                placeholder="Ex: https://github.com/..."
-                placeholderTextColor="#A0A0A0"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Data de Nascimento</Text>
               <TextInput 
                 style={styles.textInput} 
@@ -553,7 +584,6 @@ export default function Home() {
                 onPress={() => {
                   updateUserProfile({
                     nome: tempName,
-                    photoUrl: tempPhotoUrl,
                     dataNascimento: tempBirth,
                     salarioAtual: tempSalary ? tempSalary.replace(',', '.') : ''
                   });
