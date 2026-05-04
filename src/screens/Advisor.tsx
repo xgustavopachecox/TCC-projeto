@@ -7,12 +7,20 @@ import {
   ScrollView, 
   TextInput,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Modal,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Markdown from 'react-native-markdown-display';
 import { useUser } from '../context/UserContext';
 import { useTransactions } from '../context/TransactionContext';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(apiKey);
 
 type Message = {
   id: string;
@@ -22,20 +30,52 @@ type Message = {
 
 export default function Advisor() {
   const navigation = useNavigation<any>();
-  const { userName, investorProfile, setInvestorProfile } = useUser();
+  const { userId, userName, investorProfile, setInvestorProfile, userSalary } = useUser();
   const { transactions } = useTransactions();
   
   // Chat State
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState<boolean | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const PRIMARY_COLOR = '#6200ee';
 
+  useEffect(() => {
+    const checkDisclaimer = async () => {
+      if (!userId) return;
+      const agreed = await AsyncStorage.getItem(`@agreedToAIDisclaimer_${userId}`);
+      setHasAgreedDisclaimer(agreed === 'true');
+    };
+    checkDisclaimer();
+  }, [userId]);
+
+  const handleAgreeDisclaimer = async () => {
+    if (!userId) return;
+    await AsyncStorage.setItem(`@agreedToAIDisclaimer_${userId}`, 'true');
+    setHasAgreedDisclaimer(true);
+  };
+
   // --- CHAT INITIALIZATION ---
-  const iniciarChat = (perfil: string) => {
-    // Calculo básico do mês para a IA comentar
+  const handleSendMessage = async (textToSend: string) => {
+    if (!textToSend.trim() || isTyping) return;
+
+    const userMsg: Message = { id: Math.random().toString(), role: 'user', text: textToSend };
+    setMessages(prev => [...prev, userMsg]);
+    setInputText('');
+    setIsTyping(true);
+
+    // Rola pra baixo
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+
+    if (!apiKey) {
+      setMessages(prev => [...prev, { id: Math.random().toString(), role: 'ai', text: "A chave da API do Gemini não foi encontrada. Configure o arquivo .env com a chave EXPO_PUBLIC_GEMINI_API_KEY." }]);
+      setIsTyping(false);
+      return;
+    }
+
+    // Calcular resumo de despesas do mês
     const hoje = new Date();
     const transacoesMes = transactions.filter(tx => {
       const [d, m, y] = tx.date.split('/');
@@ -50,55 +90,40 @@ export default function Advisor() {
       }
     });
 
-    const aiInitialMsg = {
-      id: Math.random().toString(),
-      role: 'ai' as const,
-      text: `Olá ${userName}! Sou a TCC-AI ✨. \n\nAcabei de analisar que seu perfil é ${perfil}. Baseado nisso, posso te ajudar a escolher investimentos ideais ou analisar seus gastos. \n\nNo momento vi que você gastou R$ ${despesas.toFixed(2)} este mês. Como posso te ajudar hoje?`
-    };
-    setMessages([aiInitialMsg]);
-  };
+    const systemInstruction = `Você é a IA de um aplicativo de Finanças, uma conselheira financeira inteligente do aplicativo TCC Finanças.
+Seu objetivo é ajudar o usuário exclusivamente com finanças pessoais, economia e investimentos.
+Dados do usuário atual:
+- Nome: ${userName}
+- Perfil de Investidor: ${investorProfile}
+${userSalary ? `- Salário Atual: R$ ${userSalary}` : ''}
+- Gastos deste mês: R$ ${despesas.toFixed(2)}
 
-  useEffect(() => {
-    if (investorProfile !== 'Não definido' && messages.length === 0) {
-      iniciarChat(investorProfile);
-    }
-  }, [investorProfile]);
+Regras cruciais:
+1. Responda APENAS sobre finanças. Se o usuário perguntar sobre outros assuntos, recuse educadamente.
+2. Seja amigável, direto e use emojis ocasionalmente.
+3. Leve sempre em consideração o perfil de investidor e o salário do usuário ao dar dicas.
+4. Formate a resposta em parágrafos ou tópicos curtos, fáceis de ler no celular.`;
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
-
-    const userMsg: Message = { id: Math.random().toString(), role: 'user', text: inputText };
-    setMessages(prev => [...prev, userMsg]);
-    setInputText('');
-    setIsTyping(true);
-
-    // Rola pra baixo
-    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-
-    // Simula tempo de resposta da IA
-    setTimeout(() => {
-      let aiText = "Estou processando sua solicitação...";
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction });
       
-      const lowerInput = userMsg.text.toLowerCase();
-      if (lowerInput.includes('resumo') || lowerInput.includes('gasto')) {
-        aiText = "Aqui está o resumo: Tente focar em reduzir gastos na categoria Alimentação e Transporte. Posso gerar um gráfico completo na tela de Início para você.";
-      } else if (lowerInput.includes('investir') || lowerInput.includes('ativo') || lowerInput.includes('recomend')) {
-        if (investorProfile === 'Conservador') {
-          aiText = "Para o seu perfil Conservador, eu recomendo Títulos do Tesouro Direto (Tesouro Selic) ou CDBs com liquidez diária. Risco baixo e protegem da inflação.";
-        } else if (investorProfile === 'Moderado') {
-          aiText = "Como Moderado, você pode mesclar: 70% em Tesouro/CDBs e 30% em Fundos Imobiliários (FIIs) para começar a receber dividendos!";
-        } else {
-          aiText = "Perfil Arrojado detectado! Recomendo uma diversificação agressiva: 50% Ações, 30% Fundos Imobiliários e 20% em Criptomoedas ou Ativos Internacionais.";
-        }
-      } else {
-        aiText = `Entendi. Como um investidor ${investorProfile}, mantenha o foco no longo prazo. Se quiser dicas de ativos ou o resumo do mês, é só pedir!`;
-      }
-
+      const chatHistory = messages.map(m => ({
+        role: m.role === 'ai' ? 'model' : 'user',
+        parts: [{ text: m.text }]
+      }));
+      
+      const chatSession = model.startChat({ history: chatHistory });
+      const result = await chatSession.sendMessage(textToSend);
+      const aiText = result.response.text();
+      
       setMessages(prev => [...prev, { id: Math.random().toString(), role: 'ai', text: aiText }]);
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { id: Math.random().toString(), role: 'ai', text: "Ocorreu um erro ao consultar a inteligência artificial. Verifique se sua chave da API é válida." }]);
+    } finally {
       setIsTyping(false);
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-
-    }, 2000);
+    }
   };
 
   // --- RENDERIZAÇÃO: MODO BLOQUEADO ---
@@ -123,16 +148,60 @@ export default function Advisor() {
     );
   }
 
+  // --- RENDERIZAÇÃO: MODO DISCLAIMER ---
+  if (hasAgreedDisclaimer === false) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.headerQuiz}>
+          <Ionicons name="shield-checkmark" size={60} color="#FFF" style={{marginBottom: 20}} />
+          <Text style={styles.titleQuiz}>Aviso de Privacidade</Text>
+          <Text style={styles.subtitleQuiz}>
+            Nossa Inteligência Artificial é alimentada pelo Google Gemini.
+            Ao prosseguir, você concorda que o seu perfil de investidor e o saldo de gastos do mês serão compartilhados com os servidores do Google para gerar análises personalizadas.
+          </Text>
+        </View>
+
+        <View style={styles.quizCard}>
+          <TouchableOpacity style={[styles.startQuizButton, { width: '100%', justifyContent: 'center', marginBottom: 15 }]} onPress={handleAgreeDisclaimer}>
+            <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+            <Text style={styles.startQuizButtonText}>Li e Concordo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.startQuizButton, { width: '100%', justifyContent: 'center', backgroundColor: '#F5F5F5', elevation: 0, shadowOpacity: 0 }]} onPress={() => navigation.navigate('Início')}>
+            <Ionicons name="close-circle" size={20} color="#666" />
+            <Text style={[styles.startQuizButtonText, { color: '#666' }]}>Recusar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (hasAgreedDisclaimer === null) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFF" />
+      </View>
+    );
+  }
+
   // --- RENDERIZAÇÃO: MODO CHAT IA ---
   return (
     <KeyboardAvoidingView style={styles.containerChat} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal visible={isTyping} transparent={true} animationType="fade">
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center'}}>
+          <View style={{backgroundColor: '#FFF', padding: 25, borderRadius: 20, alignItems: 'center', elevation: 10}}>
+            <ActivityIndicator size="large" color="#6200ee" />
+            <Text style={{marginTop: 15, color: '#333', fontWeight: 'bold'}}>I.A pensando...</Text>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.chatHeader}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
           <View style={styles.aiAvatar}>
             <Ionicons name="sparkles" size={20} color="#FFF" />
           </View>
           <View>
-            <Text style={styles.chatTitle}>I.A Advisor</Text>
+            <Text style={styles.chatTitle}>I.A Investidora</Text>
             <Text style={styles.chatSubtitle}>Perfil detectado: {investorProfile}</Text>
           </View>
         </View>
@@ -144,13 +213,40 @@ export default function Advisor() {
         contentContainerStyle={{paddingVertical: 20}}
         showsVerticalScrollIndicator={false}
       >
+        {messages.length === 0 && (
+          <View style={styles.initialPromptsContainer}>
+            <Text style={styles.initialPromptsTitle}>Como posso te ajudar hoje, {userName}?</Text>
+            
+            <TouchableOpacity style={styles.promptButton} onPress={() => handleSendMessage("Faça um resumo dos meus gastos deste mês.")}>
+              <Ionicons name="pie-chart-outline" size={24} color={PRIMARY_COLOR} />
+              <Text style={styles.promptButtonText}>Resumo dos meus gastos</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.promptButton} onPress={() => handleSendMessage("Quais as melhores opções de investimento para mim?")}>
+              <Ionicons name="trending-up-outline" size={24} color={PRIMARY_COLOR} />
+              <Text style={styles.promptButtonText}>Dicas de investimento</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.promptButton} onPress={() => handleSendMessage("Como posso melhorar meu planejamento financeiro?")}>
+              <Ionicons name="wallet-outline" size={24} color={PRIMARY_COLOR} />
+              <Text style={styles.promptButtonText}>Melhorar planejamento</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {messages.map((msg) => {
           const isAI = msg.role === 'ai';
           return (
             <View key={msg.id} style={[styles.messageWrapper, isAI ? styles.messageWrapperAI : styles.messageWrapperUser]}>
               {isAI && <Ionicons name="sparkles-outline" size={16} color={PRIMARY_COLOR} style={{marginRight: 6, alignSelf: 'flex-end', marginBottom: 5}}/>}
               <View style={[styles.bubble, isAI ? styles.aiBubble : styles.userBubble]}>
-                <Text style={[styles.bubbleText, isAI ? styles.aiBubbleText : styles.userBubbleText]}>{msg.text}</Text>
+                {isAI ? (
+                  <Markdown style={markdownStyles}>
+                    {msg.text}
+                  </Markdown>
+                ) : (
+                  <Text style={[styles.bubbleText, styles.userBubbleText]}>{msg.text}</Text>
+                )}
               </View>
             </View>
           )
@@ -173,9 +269,9 @@ export default function Advisor() {
           placeholderTextColor="#999" 
           value={inputText}
           onChangeText={setInputText}
-          onSubmitEditing={sendMessage}
+          onSubmitEditing={() => handleSendMessage(inputText)}
         />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+        <TouchableOpacity style={styles.sendButton} onPress={() => handleSendMessage(inputText)}>
           <Ionicons name="send" size={18} color="#FFF" style={{marginLeft: 2}} />
         </TouchableOpacity>
       </View>
@@ -213,7 +309,18 @@ const styles = StyleSheet.create({
 
   typingText: { color: '#888', fontStyle: 'italic', fontSize: 14 },
   
+  initialPromptsContainer: { marginTop: 30, paddingHorizontal: 10 },
+  initialPromptsTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 20, textAlign: 'center' },
+  promptButton: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 12, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 },
+  promptButtonText: { marginLeft: 12, fontSize: 15, color: '#444', fontWeight: '500', flex: 1 },
+
   inputArea: { flexDirection: 'row', padding: 15, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE', alignItems: 'center' },
   input: { flex: 1, backgroundColor: '#F5F5F5', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, fontSize: 15, color: '#333', marginRight: 10 },
   sendButton: { width: 45, height: 45, backgroundColor: '#6200ee', borderRadius: 23, justifyContent: 'center', alignItems: 'center' }
 });
+
+const markdownStyles = {
+  body: { color: '#333', fontSize: 15, lineHeight: 22 },
+  strong: { fontWeight: 'bold' as const },
+  paragraph: { marginTop: 0, marginBottom: 10 }
+};
