@@ -9,7 +9,6 @@ export type Transaction = {
   amount: string;
   category: string; // no frontend esse costuma ser o ID local da categoria (ex: 'e1') mas agora é o ID do banco em string
   date: string;
-  time: string;
   description: string;
 };
 
@@ -37,7 +36,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       if (!userId) return;
       try {
         const apiTransacoes = await transacaoService.listarTodos(userId);
-        
+
         // Mapear Transacao (Backend) -> Transaction (Frontend)
         const mappedTransactions: Transaction[] = apiTransacoes.map(t => {
           // Vamos tentar achar o nome da categoria usando a lista do UserContext
@@ -48,7 +47,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           // ou a data salva no BD já tem isso? O frontend salva "date" e "time". 
           // Vamos assumir que a data do BD pode conter ou não a hora, ou usamos o campo "descricao" para armazenar o resto se não foi feito antes.
           // Para não quebrar o layout, vamos preencher os campos.
-          
+
           return {
             id: String(t.id),
             title: t.descricao || categoryName, // Mostra a descrição do usuário, ou o nome da categoria como fallback
@@ -56,7 +55,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             amount: formatToBRL(t.valor),
             category: categoryName, // Exibe o nome da categoria, e não o ID
             date: t.data,
-            time: '12:00', // Mock de hora, caso precise
             description: t.descricao || '',
           };
         });
@@ -67,7 +65,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         console.error('Erro ao carregar transações:', error);
       }
     };
-    
+
     loadTransactions();
   }, [userId, categories]);
 
@@ -94,7 +92,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         amount: formatToBRL(novaTransacaoApi.valor),
         category: categoryName,
         date: novaTransacaoApi.data,
-        time: tx.time,
         description: novaTransacaoApi.descricao || '',
       };
 

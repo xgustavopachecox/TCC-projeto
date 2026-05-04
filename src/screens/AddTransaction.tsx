@@ -93,9 +93,6 @@ export default function AddTransaction() {
     const catObj = currentCategories.find(c => c.id === selectedCategory);
     const categoryName = catObj ? catObj.name : 'Outros';
 
-    const today = new Date();
-    const timeString = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
-
     // Construir o objeto real da transação
     const newTx = {
       id: Math.random().toString(36).substring(7),
@@ -104,7 +101,6 @@ export default function AddTransaction() {
       amount: amount,
       category: selectedCategory,
       date: dateText,
-      time: timeString,
       description: title
     };
 

@@ -77,8 +77,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const storedId = await AsyncStorage.getItem('@usuarioId');
       if (!storedId) {
         // Primeiro acesso real (sem conta local)
-        // Auto-login para ir direto ao Welcome
         await login();
+      } else {
+        // Ping no backend para ver se o banco foi resetado
+        try {
+          await usuarioService.buscarPorId(parseInt(storedId, 10));
+        } catch (e: any) {
+          if (e.response && e.response.status === 404) {
+            await AsyncStorage.removeItem('@usuarioId');
+            await login(); // Recria a conta e joga pro Welcome
+          }
+        }
       }
       setIsLoading(false);
     };
@@ -92,19 +101,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (storedId) {
         currentUserId = parseInt(storedId, 10);
-        const user = await usuarioService.buscarPorId(currentUserId);
-        setUserName(user.nome);
-        if (user.dataNascimento) setUserBirthDate(user.dataNascimento);
-        if (user.salarioAtual) setUserSalary(String(user.salarioAtual));
-        
-        const savedPhoto = await AsyncStorage.getItem(`@userPhoto_${currentUserId}`);
-        if (savedPhoto) setUserPhoto(savedPhoto);
-        
         try {
-          const profile = await perfilInvestidorService.buscarPorUsuarioId(currentUserId);
-          if (profile) setInvestorProfile(profile.tipoPerfil);
-        } catch (e) {
-          // não tem perfil ainda
+          const user = await usuarioService.buscarPorId(currentUserId);
+          setUserName(user.nome);
+          if (user.dataNascimento) setUserBirthDate(user.dataNascimento);
+          if (user.salarioAtual) setUserSalary(String(user.salarioAtual));
+          
+          const savedPhoto = await AsyncStorage.getItem(`@userPhoto_${currentUserId}`);
+          if (savedPhoto) setUserPhoto(savedPhoto);
+          
+          try {
+            const profile = await perfilInvestidorService.buscarPorUsuarioId(currentUserId);
+            if (profile) setInvestorProfile(profile.tipoPerfil);
+          } catch (e) {
+            // não tem perfil ainda
+          }
+        } catch (e: any) {
+          if (e.response && e.response.status === 404) {
+            // Banco foi resetado e o usuário não existe mais. Limpa o storage para recriar.
+            await AsyncStorage.removeItem('@usuarioId');
+            return login(); // chama recursivamente para cair no fluxo de criação
+          } else {
+            throw e;
+          }
         }
       } else {
         // Criar novo usuário na API

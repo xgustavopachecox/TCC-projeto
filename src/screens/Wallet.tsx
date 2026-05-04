@@ -163,7 +163,7 @@ export default function Wallet() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.transactionTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
-          <Text style={styles.transactionCategory}>{item.category} • {item.time}</Text>
+          <Text style={styles.transactionCategory}>{item.category}</Text>
         </View>
       </View>
       <Text style={[styles.transactionAmount, { color: item.type === 'up' ? GREEN_COLOR : RED_COLOR }]}>
@@ -300,8 +300,6 @@ export default function Wallet() {
                   <View style={styles.detailRow}><Text style={styles.detailLabel}>Categoria</Text><Text style={styles.detailValue}>{selectedTx.category}</Text></View>
                   <View style={styles.detailDivider} />
                   <View style={styles.detailRow}><Text style={styles.detailLabel}>Data</Text><Text style={styles.detailValue}>{selectedTx.date}</Text></View>
-                  <View style={styles.detailDivider} />
-                  <View style={styles.detailRow}><Text style={styles.detailLabel}>Hora</Text><Text style={styles.detailValue}>{selectedTx.time}</Text></View>
                   <View style={styles.detailDivider} />
                   <View style={styles.detailRow}><Text style={styles.detailLabel}>Descrição</Text><Text style={styles.detailValueDesc}>{selectedTx.description}</Text></View>
                 </View>
