@@ -164,7 +164,13 @@ export default function AddTransaction() {
                     style={[styles.categoryChip, selectedCategory === cat.id && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]}
                     onPress={() => handleCategoryPress(cat.id)}
                   >
-                    <Ionicons name={cat.icon as any} size={20} color={selectedCategory === cat.id ? '#FFF' : '#666'} />
+                    {cat.isDefault ? (
+                      <Ionicons name={cat.icon as any} size={20} color={selectedCategory === cat.id ? '#FFF' : '#666'} />
+                    ) : (
+                      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: selectedCategory === cat.id ? '#FFF' : '#CCC', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: selectedCategory === cat.id ? PRIMARY_COLOR : '#FFF', fontSize: 12, fontWeight: 'bold' }}>{cat.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
                     <Text style={[styles.categoryText, selectedCategory === cat.id && styles.categoryTextActive]}>{cat.name}</Text>
                   </TouchableOpacity>
                 ))}

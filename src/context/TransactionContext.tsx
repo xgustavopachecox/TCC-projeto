@@ -41,8 +41,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         // Mapear Transacao (Backend) -> Transaction (Frontend)
         const mappedTransactions: Transaction[] = apiTransacoes.map(t => {
           // Vamos tentar achar o nome da categoria usando a lista do UserContext
-          const categoryObj = categories.find(c => c.id === String(t.categoria.id));
-          const categoryName = categoryObj ? categoryObj.name : 'Outros';
+          const categoryObj = t.categoria ? categories.find(c => c.id === String(t.categoria.id)) : null;
+          const categoryName = categoryObj ? categoryObj.name : 'Excluída';
 
           // A API tem apenas data e descricao, o frontend separa data e hora se quiser,
           // ou a data salva no BD já tem isso? O frontend salva "date" e "time". 

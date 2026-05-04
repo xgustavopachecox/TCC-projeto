@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usuarioService } from '../api/services/usuarioService';
 import { categoriaService } from '../api/services/categoriaService';
@@ -10,6 +11,7 @@ export type Category = {
   name: string;
   icon: string;
   type: 'up' | 'down';
+  isDefault?: boolean;
 };
 
 type UserContextType = {
@@ -27,6 +29,9 @@ type UserContextType = {
   investorProfile: string;
   setInvestorProfile: (profile: string) => void;
   categories: Category[];
+  addCategory: (name: string, type: 'up' | 'down') => Promise<void>;
+  updateCategory: (id: string, name: string, type: 'up' | 'down') => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   login: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   isFirstAccess: boolean;
@@ -139,12 +144,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         apiCategories = await categoriaService.listarTodos(currentUserId);
       }
-      const mappedCategories: Category[] = apiCategories.map(c => ({
-        id: String(c.id),
-        name: c.nome,
-        type: c.tipo as 'up' | 'down',
-        icon: getIconByName(c.nome, c.tipo as 'up' | 'down')
-      }));
+      const mappedCategories: Category[] = apiCategories.map(c => {
+        const isDef = INITIAL_CATEGORIES.some(ic => ic.name === c.nome && ic.type === c.tipo);
+        return {
+          id: String(c.id),
+          name: c.nome,
+          type: c.tipo as 'up' | 'down',
+          icon: getIconByName(c.nome, c.tipo as 'up' | 'down'),
+          isDefault: isDef
+        };
+      });
       
       setCategories(mappedCategories);
       setIsAuthenticated(true);
@@ -220,8 +229,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
           usuario: { id: userId }
         });
       } catch (error) {
-        console.error('Erro ao salvar perfil de investidor', error);
+        console.error('Erro ao atualizar perfil investidor', error);
       }
+    }
+  };
+
+  const addCategory = async (name: string, type: 'up' | 'down') => {
+    if (!userId) return;
+    try {
+      const nova = await categoriaService.criar({ nome: name, tipo: type, usuario: { id: userId } });
+      const mappedCat: Category = {
+        id: String(nova.id),
+        name: nova.nome,
+        type: nova.tipo as 'up' | 'down',
+        icon: getIconByName(nova.nome, nova.tipo as 'up' | 'down'),
+        isDefault: false
+      };
+      setCategories(prev => [...prev, mappedCat]);
+    } catch (e) {
+      console.error('Erro ao criar categoria', e);
+    }
+  };
+
+  const updateCategory = async (id: string, name: string, type: 'up' | 'down') => {
+    if (!userId) return;
+    try {
+      const atualizada = await categoriaService.atualizar(Number(id), { nome: name, tipo: type, usuario: { id: userId } });
+      setCategories(prev => prev.map(cat => cat.id === id ? {
+        ...cat,
+        name: atualizada.nome,
+        type: atualizada.tipo as 'up' | 'down',
+        icon: getIconByName(atualizada.nome, atualizada.tipo as 'up' | 'down')
+      } : cat));
+    } catch (e) {
+      console.error('Erro ao atualizar categoria', e);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (!userId) return;
+    try {
+      await categoriaService.deletar(Number(id));
+      setCategories(prev => prev.filter(cat => cat.id !== id));
+    } catch (e) {
+      console.error('Erro ao deletar categoria', e);
+      Alert.alert('Atenção', 'Não é possível excluir uma categoria que possui transações. Exclua as transações primeiro.');
     }
   };
 
@@ -258,9 +310,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       userPhoto, 
       setUserPhoto, 
       updateUserProfile,
-      investorProfile, 
+      investorProfile,
       setInvestorProfile: handleSetInvestorProfile,
-      categories, 
+      categories,
+      addCategory,
+      updateCategory,
+      deleteCategory,
       login,
       deleteAccount,
       isFirstAccess,

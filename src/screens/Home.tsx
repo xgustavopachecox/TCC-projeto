@@ -24,7 +24,11 @@ import { useUser } from '../context/UserContext';
 
 export default function Home() {
   const navigation = useNavigation<any>();
-  const { userName, userPhoto, investorProfile, setInvestorProfile, deleteAccount } = useUser();
+  const { 
+    userName, userPhoto, investorProfile, setInvestorProfile, deleteAccount,
+    updateUserProfile, userBirthDate, userSalary,
+    categories, addCategory, updateCategory, deleteCategory
+  } = useUser();
   
   // ==========================================
   // ESTADOS DE DATA E MODAIS
@@ -34,13 +38,24 @@ export default function Home() {
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
   const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
+  const [categoriesModalVisible, setCategoriesModalVisible] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{ id?: string, name: string, type: 'up' | 'down' } | null>(null);
   const [showBalance, setShowBalance] = useState(true);
 
-  const { updateUserProfile, userBirthDate, userSalary } = useUser();
   const [tempName, setTempName] = useState(userName);
   const [tempPhotoUrl, setTempPhotoUrl] = useState(userPhoto);
   const [tempBirth, setTempBirth] = useState(userBirthDate);
   const [tempSalary, setTempSalary] = useState(userSalary);
+
+  const handleSaveCategory = () => {
+    if (!editingCategory || !editingCategory.name.trim()) return;
+    if (editingCategory.id) {
+      updateCategory(editingCategory.id, editingCategory.name.trim(), editingCategory.type);
+    } else {
+      addCategory(editingCategory.name.trim(), editingCategory.type);
+    }
+    setEditingCategory(null);
+  };
 
   const handleBirthChange = (text: string) => {
     let cleaned = text.replace(/\D/g, '');
@@ -420,7 +435,7 @@ export default function Home() {
                 <Ionicons name="chevron-forward" size={18} color="#333" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuRow}>
+              <TouchableOpacity style={styles.menuRow} onPress={() => setCategoriesModalVisible(true)}>
                 <View style={styles.menuRowLeft}>
                   <Ionicons name="grid-outline" size={22} color="#FFF" />
                   <Text style={styles.menuRowText}>Configurar Categorias</Text>
@@ -596,6 +611,117 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL CONFIGURAR CATEGORIAS */}
+      <Modal visible={categoriesModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlayDarkTranslucent}>
+          <View style={styles.categoriesModalCard}>
+            <View style={styles.categoriesModalHeader}>
+              <Text style={styles.categoriesModalTitle}>Categorias</Text>
+              <TouchableOpacity onPress={() => setCategoriesModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              {categories.map((cat) => (
+                <View key={cat.id} style={styles.categoryListItem}>
+                  <View style={styles.categoryListLeft}>
+                    {cat.isDefault ? (
+                      <Ionicons name={cat.icon as any} size={20} color={cat.type === 'up' ? '#27ae60' : '#e74c3c'} />
+                    ) : (
+                      <View style={[styles.customCatIcon, { backgroundColor: cat.type === 'up' ? '#27ae60' : '#e74c3c' }]}>
+                        <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{cat.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.categoryListName}>{cat.name}</Text>
+                  </View>
+                  <View style={styles.categoryListRight}>
+                    {cat.isDefault ? (
+                      <Ionicons name="lock-closed" size={18} color="#CCC" />
+                    ) : (
+                      <>
+                        <TouchableOpacity onPress={() => setEditingCategory({ id: cat.id, name: cat.name, type: cat.type })}>
+                          <Ionicons name="pencil" size={20} color="#6200ee" style={{ marginRight: 15 }} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                          Alert.alert("Deletar", "Tem certeza que deseja apagar essa categoria?", [
+                            { text: "Cancelar", style: "cancel" },
+                            { text: "Apagar", style: "destructive", onPress: () => deleteCategory(cat.id) }
+                          ]);
+                        }}>
+                          <Ionicons name="trash" size={20} color="#e74c3c" />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.addCategoryBtn} 
+              onPress={() => setEditingCategory({ name: '', type: 'down' })}
+            >
+              <Ionicons name="add" size={20} color="#FFF" />
+              <Text style={styles.addCategoryBtnText}>Nova Categoria</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* SUB-MODAL EDITAR/CRIAR CATEGORIA */}
+      <Modal visible={!!editingCategory} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlayDarkTranslucent}>
+          <View style={styles.editProfileCard}>
+            <Text style={styles.editProfileTitle}>{editingCategory?.id ? 'Editar' : 'Nova'} Categoria</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nome da Categoria</Text>
+              <TextInput 
+                style={styles.textInput} 
+                value={editingCategory?.name} 
+                onChangeText={(t) => setEditingCategory(prev => prev ? {...prev, name: t} : null)} 
+                placeholder="Ex: Assinaturas"
+                placeholderTextColor="#A0A0A0"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Tipo</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity 
+                  style={[styles.typeCatBtn, editingCategory?.type === 'up' && { backgroundColor: '#27ae60', borderColor: '#27ae60' }]} 
+                  onPress={() => setEditingCategory(prev => prev ? {...prev, type: 'up'} : null)}
+                >
+                  <Text style={[styles.typeCatText, editingCategory?.type === 'up' && { color: '#FFF' }]}>Entrada</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.typeCatBtn, editingCategory?.type === 'down' && { backgroundColor: '#e74c3c', borderColor: '#e74c3c' }]} 
+                  onPress={() => setEditingCategory(prev => prev ? {...prev, type: 'down'} : null)}
+                >
+                  <Text style={[styles.typeCatText, editingCategory?.type === 'down' && { color: '#FFF' }]}>Saída</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.editProfileActions}>
+              <TouchableOpacity 
+                style={[styles.editProfileBtn, { backgroundColor: '#F0F0F0' }]} 
+                onPress={() => setEditingCategory(null)}
+              >
+                <Text style={[styles.editProfileBtnText, { color: '#666' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.editProfileBtn, { backgroundColor: '#6200ee' }]} 
+                onPress={handleSaveCategory}
+              >
+                <Text style={[styles.editProfileBtnText, { color: '#FFF' }]}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -692,10 +818,22 @@ const styles = StyleSheet.create({
   modalOverlayDarkTranslucent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   editProfileCard: { width: '88%', backgroundColor: '#FFF', borderRadius: 24, padding: 25, elevation: 10 },
   editProfileTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 20, textAlign: 'center' },
-  inputGroup: { marginBottom: 15 },
-  inputLabel: { fontSize: 13, fontWeight: 'bold', color: '#666', marginBottom: 6 },
-  textInput: { backgroundColor: '#F5F5F5', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#333', borderWidth: 1, borderColor: '#E0E0E0' },
-  editProfileActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 10 },
-  editProfileBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  editProfileBtnText: { fontWeight: 'bold', fontSize: 15 }
+  inputGroup: { marginBottom: 20 },
+  inputLabel: { fontSize: 13, color: '#666', marginBottom: 8, fontWeight: '600' },
+  textInput: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 15, fontSize: 15, color: '#333', borderWidth: 1, borderColor: '#EEE' },
+  editProfileActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  editProfileBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  editProfileBtnText: { fontSize: 15, fontWeight: 'bold' },
+  categoriesModalCard: { backgroundColor: '#FFF', width: '90%', borderRadius: 25, padding: 25 },
+  categoriesModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  categoriesModalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  categoryListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  categoryListLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  categoryListName: { fontSize: 16, color: '#333' },
+  categoryListRight: { flexDirection: 'row', alignItems: 'center' },
+  customCatIcon: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  addCategoryBtn: { backgroundColor: '#6200ee', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 15, borderRadius: 12, marginTop: 20, gap: 8 },
+  addCategoryBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  typeCatBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#DDD', alignItems: 'center', backgroundColor: '#FFF' },
+  typeCatText: { fontSize: 14, fontWeight: 'bold', color: '#666' }
 });
