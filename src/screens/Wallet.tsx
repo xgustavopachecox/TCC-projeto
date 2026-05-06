@@ -318,6 +318,7 @@ export default function Wallet() {
       {showDatePicker && (
         <DateTimePicker 
           value={dateObj} 
+          maximumDate={new Date()}
           mode="date" 
           display="default" 
           onChange={onDateChange} 

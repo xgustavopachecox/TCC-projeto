@@ -34,7 +34,6 @@ export default function Home() {
   // ESTADOS DE DATA E MODAIS
   // ==========================================
   const [viewDate, setViewDate] = useState(new Date()); 
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
   const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
@@ -65,10 +64,7 @@ export default function Home() {
     setTempBirth(masked.substring(0, 10));
   };
 
-  const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-  const years = [2024, 2025, 2026, 2027];
-
-  const { transactions } = useTransactions();
+  const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];  const { transactions } = useTransactions();
 
   const PRIMARY_COLOR = '#6200ee';
   const GREEN_COLOR = '#27ae60';
@@ -160,14 +156,16 @@ export default function Home() {
   // ==========================================
   // FUNÇÕES DE INTERAÇÃO
   // ==========================================
-  const changeMonth = (monthIndex: number) => {
-    const newDate = new Date(viewDate.getFullYear(), monthIndex, 1);
-    setViewDate(newDate);
+  const prevMonth = () => {
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
-  const changeYear = (year: number) => {
-    const newDate = new Date(year, viewDate.getMonth(), 1);
-    setViewDate(newDate);
+  const nextMonth = () => {
+    const today = new Date();
+    if (viewDate.getFullYear() === today.getFullYear() && viewDate.getMonth() === today.getMonth()) {
+      return; // Já estamos no mês atual, não avançar
+    }
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
   const pickImage = async () => {
@@ -244,16 +242,27 @@ export default function Home() {
         <View style={styles.balanceCard}>
           <View style={styles.cardHeader}>
             <Text style={styles.balanceLabel}>Saldo disponível</Text>
-            <TouchableOpacity 
-              style={styles.filterPill} 
-              onPress={() => setDatePickerVisible(true)}
-              activeOpacity={0.7}
-            >
+            <View style={styles.monthSelector}>
+              <TouchableOpacity onPress={prevMonth} style={styles.arrowButton}>
+                <Ionicons name="chevron-back" size={18} color="#6200ee" />
+              </TouchableOpacity>
+              
               <Text style={styles.filterText}>
-                {months[viewDate.getMonth()]}/{viewDate.getFullYear()}
+                {months[viewDate.getMonth()]} {viewDate.getFullYear()}
               </Text>
-              <Ionicons name="chevron-down" size={14} color="#6200ee" />
-            </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={nextMonth} 
+                style={styles.arrowButton}
+                disabled={viewDate.getFullYear() === new Date().getFullYear() && viewDate.getMonth() === new Date().getMonth()}
+              >
+                <Ionicons 
+                  name="chevron-forward" 
+                  size={18} 
+                  color={(viewDate.getFullYear() === new Date().getFullYear() && viewDate.getMonth() === new Date().getMonth()) ? "#CCC" : "#6200ee"} 
+                />
+              </TouchableOpacity>
+            </View>
           </View>
           
           <Text style={styles.balanceValue}>
@@ -467,44 +476,6 @@ export default function Home() {
                 <Text style={[styles.logoutText, { color: '#e74c3c' }]}>Excluir conta</Text>
               </TouchableOpacity>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL SELETOR DE DATA */}
-      <Modal visible={datePickerVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setDatePickerVisible(false)} />
-          <View style={styles.pickerContent}>
-            <Text style={styles.pickerTitle}>Escolher Período</Text>
-            
-            <View style={styles.yearRow}>
-              {years.map(y => (
-                <TouchableOpacity 
-                  key={y} 
-                  style={[styles.yearBtn, viewDate.getFullYear() === y && styles.activeBtn]}
-                  onPress={() => changeYear(y)}
-                >
-                  <Text style={[styles.yearBtnText, viewDate.getFullYear() === y && styles.activeBtnText]}>{y}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.monthGrid}>
-              {months.map((m, index) => (
-                <TouchableOpacity 
-                  key={m} 
-                  style={[styles.monthBtn, viewDate.getMonth() === index && styles.activeBtn]}
-                  onPress={() => changeMonth(index)}
-                >
-                  <Text style={[styles.monthBtnText, viewDate.getMonth() === index && styles.activeBtnText]}>{m}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity style={styles.confirmBtn} onPress={() => setDatePickerVisible(false)}>
-              <Text style={styles.confirmBtnText}>Confirmar</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -740,8 +711,9 @@ const styles = StyleSheet.create({
   balanceCard: { backgroundColor: '#FFF', borderRadius: 22, padding: 20, elevation: 6, marginBottom: 25 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   balanceLabel: { color: '#888', fontSize: 14 },
-  filterPill: { flexDirection: 'row', backgroundColor: '#F3E5F5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: 'center', gap: 6 },
-  filterText: { color: '#6200ee', fontSize: 13, fontWeight: 'bold' },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E5F5', borderRadius: 20 },
+  arrowButton: { paddingHorizontal: 12, paddingVertical: 8 },
+  filterText: { color: '#6200ee', fontSize: 14, fontWeight: 'bold', paddingHorizontal: 4 },
   balanceValue: { fontSize: 32, fontWeight: 'bold', color: '#333' },
   separator: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 18 },
   rowSummary: { flexDirection: 'row', justifyContent: 'space-between' },

@@ -90,6 +90,18 @@ export default function AddTransaction() {
       return;
     }
 
+    if (dateText.length === 10) {
+      const [d, m, y] = dateText.split('/');
+      const inputDate = new Date(Number(y), Number(m) - 1, Number(d));
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      
+      if (inputDate > today) {
+        Alert.alert('Data Inválida', 'Não é possível registrar transações em datas futuras.');
+        return;
+      }
+    }
+
     const catObj = currentCategories.find(c => c.id === selectedCategory);
     const categoryName = catObj ? catObj.name : 'Outros';
 
@@ -202,7 +214,7 @@ export default function AddTransaction() {
           </View>
         </View>
 
-        {showPicker && <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDateChange} />}
+        {showPicker && <DateTimePicker value={dateObj} maximumDate={new Date()} mode="date" display="default" onChange={onDateChange} />}
       </ScrollView>
     </KeyboardAvoidingView>
   );
