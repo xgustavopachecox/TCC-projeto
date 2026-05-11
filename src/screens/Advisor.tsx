@@ -9,7 +9,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   Modal,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -38,6 +39,7 @@ export default function Advisor() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState<boolean | null>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const PRIMARY_COLOR = '#6200ee';
@@ -102,7 +104,12 @@ Regras cruciais:
 1. Responda APENAS sobre finanças. Se o usuário perguntar sobre outros assuntos, recuse educadamente.
 2. Seja amigável, direto e use emojis ocasionalmente.
 3. Leve sempre em consideração o perfil de investidor e o salário do usuário ao dar dicas.
-4. Formate a resposta em parágrafos ou tópicos curtos, fáceis de ler no celular.`;
+4. Formate a resposta em parágrafos ou tópicos curtos, fáceis de ler no celular.
+5. Você PODE gerar gráficos! Quando o usuário pedir para visualizar projeções de rentabilidade, rendimento futuro, ou gráficos COM AS VARIÁVEIS JÁ DEFINIDAS, responda com a configuração do gráfico (formato Chart.js) estritamente envolvida nas tags [GRAFICO] e [/GRAFICO]. IMPORTANTE: Se o usuário pedir projeção de rentabilidade, mostre os ganhos/juros ao longo do tempo, não o patrimônio total! Exemplo: 
+[GRAFICO]
+{"type":"line","data":{"labels":["Ano 1","Ano 2","Ano 3"],"datasets":[{"label":"Rentabilidade (R$)","data":[100,210,331]}]}}
+[/GRAFICO]
+6. IMPORTANTE SOBRE GRÁFICOS: Se o usuário pedir uma simulação, gráfico ou projeção de rentabilidade, mas NÃO informar parâmetros básicos (como: valor investido, aporte mensal, taxa esperada como % do CDI ou Selic, e o tempo), NÃO gere o gráfico imediatamente. Primeiro, pergunte de forma amigável quais são essas variáveis (ex: "Claro! Para a projeção ficar realista, me conte: qual a taxa Selic/CDI esperada? Qual o valor...?") para criar um gráfico mais próximo da realidade. Só gere o gráfico após ele fornecer as variáveis ou se ele pedir explicitamente para você criar um cenário hipotético.`;
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction });
@@ -190,14 +197,7 @@ Regras cruciais:
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Modal visible={isTyping} transparent={true} animationType="fade">
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center'}}>
-          <View style={{backgroundColor: '#FFF', padding: 25, borderRadius: 20, alignItems: 'center', elevation: 10}}>
-            <ActivityIndicator size="large" color="#6200ee" />
-            <Text style={{marginTop: 15, color: '#333', fontWeight: 'bold'}}>I.A pensando...</Text>
-          </View>
-        </View>
-      </Modal>
+
 
       <View style={styles.chatHeader}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
@@ -235,6 +235,11 @@ Regras cruciais:
               <Ionicons name="wallet-outline" size={24} color={PRIMARY_COLOR} />
               <Text style={styles.promptButtonText}>Melhorar planejamento</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.promptButton} onPress={() => handleSendMessage("Quero fazer uma projeção de rentabilidade para meus investimentos.")}>
+              <Ionicons name="bar-chart-outline" size={24} color={PRIMARY_COLOR} />
+              <Text style={styles.promptButtonText}>Projeção de rentabilidade</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -244,11 +249,35 @@ Regras cruciais:
             <View key={msg.id} style={[styles.messageWrapper, isAI ? styles.messageWrapperAI : styles.messageWrapperUser]}>
               {isAI && <Ionicons name="sparkles-outline" size={16} color={PRIMARY_COLOR} style={{marginRight: 6, alignSelf: 'flex-end', marginBottom: 5}}/>}
               <View style={[styles.bubble, isAI ? styles.aiBubble : styles.userBubble]}>
-                {isAI ? (
-                  <Markdown style={markdownStyles}>
-                    {msg.text}
-                  </Markdown>
-                ) : (
+                {isAI ? (() => {
+                  const parts = msg.text.split('[GRAFICO]');
+                  if (parts.length === 1) {
+                    return <Markdown style={markdownStyles} rules={markdownRules}>{msg.text}</Markdown>;
+                  }
+                  
+                  return (
+                    <View>
+                      {parts.map((part, index) => {
+                        if (part.includes('[/GRAFICO]')) {
+                          const [jsonStr, textAfter] = part.split('[/GRAFICO]');
+                          const encoded = encodeURIComponent(jsonStr.trim());
+                          const url = `https://quickchart.io/chart?c=${encoded}`;
+                          
+                          return (
+                            <View key={`part_${index}`}>
+                              <TouchableOpacity activeOpacity={0.8} onPress={() => setFullScreenImage(url)}>
+                                <Image source={{ uri: url }} style={markdownStyles.image as any} />
+                              </TouchableOpacity>
+                              {textAfter ? <Markdown style={markdownStyles} rules={markdownRules}>{textAfter}</Markdown> : null}
+                            </View>
+                          );
+                        } else {
+                          return part ? <Markdown key={`part_${index}`} style={markdownStyles} rules={markdownRules}>{part}</Markdown> : null;
+                        }
+                      })}
+                    </View>
+                  );
+                })() : (
                   <Text style={[styles.bubbleText, styles.userBubbleText]}>{msg.text}</Text>
                 )}
               </View>
@@ -280,6 +309,18 @@ Regras cruciais:
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade" onRequestClose={() => setFullScreenImage(null)}>
+        <View style={styles.fullScreenOverlay}>
+          <TouchableOpacity style={styles.fullScreenCloseArea} onPress={() => setFullScreenImage(null)} activeOpacity={1} />
+          {fullScreenImage && (
+            <Image source={{ uri: fullScreenImage }} style={styles.fullScreenImage} />
+          )}
+          <TouchableOpacity style={styles.closeFullScreenBtn} onPress={() => setFullScreenImage(null)}>
+            <Ionicons name="close" size={32} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -321,11 +362,29 @@ const styles = StyleSheet.create({
 
   inputArea: { flexDirection: 'row', padding: 15, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE', alignItems: 'center' },
   input: { flex: 1, backgroundColor: '#F5F5F5', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, fontSize: 15, color: '#333', marginRight: 10 },
-  sendButton: { width: 45, height: 45, backgroundColor: '#6200ee', borderRadius: 23, justifyContent: 'center', alignItems: 'center' }
+  sendButton: { width: 45, height: 45, backgroundColor: '#6200ee', borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
+
+  fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  fullScreenCloseArea: { ...StyleSheet.absoluteFillObject },
+  fullScreenImage: { width: '100%', height: '80%', resizeMode: 'contain' },
+  closeFullScreenBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }
 });
 
-const markdownStyles = {
+const markdownStyles: any = {
   body: { color: '#333', fontSize: 15, lineHeight: 22 },
   strong: { fontWeight: 'bold' as const },
-  paragraph: { marginTop: 0, marginBottom: 10 }
+  paragraph: { marginTop: 0, marginBottom: 10 },
+  image: { width: '100%', height: 200, resizeMode: 'contain', borderRadius: 10, marginVertical: 10 }
+};
+
+const markdownRules = {
+  image: (node: any, children: any, parent: any, styles: any) => {
+    return (
+      <Image
+        key={node.key}
+        source={{ uri: node.attributes.src }}
+        style={styles.image}
+      />
+    );
+  },
 };
