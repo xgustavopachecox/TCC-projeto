@@ -28,9 +28,9 @@ export default function AddTransaction() {
   const navigation = useNavigation<any>();
   const PRIMARY_COLOR = '#6200ee';
 
-  // 2. PUXAMOS A FUNÇÃO DE GUARDAR DO COFRE
-  const { addTransaction } = useTransactions();
-  const { categories } = useUser();
+  // 2. PUXAMOS A FUNÇÃO DE GUARDAR DO COFRE E DADOS DO USUARIO
+  const { addTransaction, addRecorrente } = useTransactions();
+  const { userId, categories } = useUser();
 
   const [type, setType] = useState<'down' | 'up'>('down');
   const [amount, setAmount] = useState('');
@@ -39,6 +39,14 @@ export default function AddTransaction() {
   const [dateText, setDateText] = useState(dataAtual);
   const [dateObj, setDateObj] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
+  const [frequencia, setFrequencia] = useState('NUNCA');
+
+  const frequencias = [
+    { id: 'NUNCA', label: 'Nunca' },
+    { id: 'DIARIA', label: 'Diário' },
+    { id: 'SEMANAL', label: 'Semanal' },
+    { id: 'MENSAL', label: 'Mensal' }
+  ];
 
   const currentCategories = categories.filter(c => c.type === type);
 
@@ -118,19 +126,34 @@ export default function AddTransaction() {
 
     Alert.alert(
       'Sucesso!',
-      'Transação adicionada com sucesso.',
+      frequencia === 'NUNCA' ? 'Transação adicionada com sucesso.' : 'Assinatura/Recorrência criada com sucesso.',
       [
         {
           text: 'OK',
-          onPress: () => {
+          onPress: async () => {
             // 3. GUARDAMOS NO COFRE CENTRAL
-            addTransaction(newTx);
+            if (frequencia === 'NUNCA') {
+              await addTransaction(newTx);
+            } else {
+              if (!userId) return;
+              await addRecorrente({
+                tipo: type,
+                valor: parseFloat(amount.replace('R$', '').replace('.', '').replace(',', '.')),
+                frequencia: frequencia,
+                dataInicio: dateText,
+                proximaData: dateText,
+                descricao: title,
+                usuario: { id: userId },
+                categoria: { id: parseInt(selectedCategory, 10) }
+              });
+            }
 
             setAmount('');
             setTitle('');
             setDateText(dataAtual);
+            setFrequencia('NUNCA');
 
-            // 4. NAVEGAMOS DE VOLTA (Sem precisar de enviar parâmetros!)
+            // 4. NAVEGAMOS DE VOLTA
             navigation.navigate('Início');
           }
         }
@@ -201,6 +224,21 @@ export default function AddTransaction() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Repetir</Text>
+              <View style={styles.freqContainer}>
+                {frequencias.map(freq => (
+                  <TouchableOpacity 
+                    key={freq.id}
+                    style={[styles.freqChip, frequencia === freq.id && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]}
+                    onPress={() => setFrequencia(freq.id)}
+                  >
+                    <Text style={[styles.freqText, frequencia === freq.id && { color: '#FFF' }]}>{freq.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Valor</Text>
               <View style={styles.amountContainer}>
                 <Text style={[styles.currencySymbol, { color: PRIMARY_COLOR }]}>R$</Text>
@@ -246,6 +284,9 @@ const styles = StyleSheet.create({
   categoryChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20, gap: 8 },
   categoryText: { color: '#666', fontWeight: '500' },
   categoryTextActive: { color: '#FFF' },
+  freqContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  freqChip: { width: '48%', marginBottom: 10, paddingVertical: 12, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#F8F9FA' },
+  freqText: { fontSize: 14, color: '#666', fontWeight: '600' },
   saveButton: { borderRadius: 15, paddingVertical: 16, alignItems: 'center', marginTop: 10, elevation: 2, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 5 },
   saveButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' }
 });

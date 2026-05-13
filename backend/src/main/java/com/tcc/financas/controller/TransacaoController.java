@@ -6,6 +6,7 @@ import com.tcc.financas.model.Usuario;
 import com.tcc.financas.repository.CategoriaRepository;
 import com.tcc.financas.repository.TransacaoRepository;
 import com.tcc.financas.repository.UsuarioRepository;
+import com.tcc.financas.service.RecorrenciaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +26,13 @@ public class TransacaoController {
     @Autowired
     private CategoriaRepository categoriaRepository;
 
+    @Autowired
+    private RecorrenciaService recorrenciaService;
+
     @GetMapping
     public List<Transacao> listarTodos(@RequestParam(required = false) Long usuarioId) {
         if (usuarioId != null) {
+            recorrenciaService.processarRecorrenciasPendentes(usuarioId);
             return repository.findByUsuarioId(usuarioId);
         }
         return repository.findAll();

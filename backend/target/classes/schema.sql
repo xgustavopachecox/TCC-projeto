@@ -53,3 +53,18 @@ CREATE TABLE IF NOT EXISTS Perfil_Investidor (
     usuario_id INTEGER NOT NULL UNIQUE,
     FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS transacao_recorrente (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,
+    valor REAL NOT NULL,
+    descricao TEXT,
+    frequencia TEXT NOT NULL,
+    data_inicio TEXT NOT NULL,
+    proxima_data TEXT NOT NULL,
+    status TEXT DEFAULT 'ATIVA',
+    usuario_id INTEGER NOT NULL,
+    categoria_id INTEGER NOT NULL,
+    FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE,
+    FOREIGN KEY (categoria_id) REFERENCES Categoria(id) ON DELETE RESTRICT
+);

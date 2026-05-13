@@ -33,3 +33,30 @@ export const transacaoService = {
     await api.delete(`/transacoes/${id}`);
   }
 };
+
+export interface TransacaoRecorrente {
+  id?: number;
+  tipo: string;
+  valor: number;
+  frequencia: string;
+  dataInicio: string;
+  proximaData: string;
+  descricao?: string;
+  status?: string;
+  usuario: { id: number };
+  categoria: { id: number };
+}
+
+export const recorrenteService = {
+  listarTodos: async (usuarioId: number) => {
+    const response = await api.get<TransacaoRecorrente[]>('/recorrentes', { params: { usuarioId } });
+    return response.data;
+  },
+  criar: async (recorrente: TransacaoRecorrente) => {
+    const response = await api.post<TransacaoRecorrente>('/recorrentes', recorrente);
+    return response.data;
+  },
+  deletar: async (id: number) => {
+    await api.delete(`/recorrentes/${id}`);
+  }
+};

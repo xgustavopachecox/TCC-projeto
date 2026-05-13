@@ -22,10 +22,10 @@ export default function Wallet() {
   const RED_COLOR = '#e74c3c';
 
   // Vai buscar a lista real e a função de apagar ao Cofre
-  const { transactions, deleteTransaction } = useTransactions();
+  const { transactions, deleteTransaction, recorrentes, deleteRecorrente } = useTransactions();
   
   // Estados de Filtro Simples e Modal
-  const [filter, setFilter] = useState<'all' | 'up' | 'down'>('all');
+  const [filter, setFilter] = useState<'all' | 'up' | 'down' | 'recorrentes'>('all');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
@@ -130,7 +130,28 @@ export default function Wallet() {
     return sections;
   };
 
-  const sectionsData = groupTransactions();
+  const getSectionsData = () => {
+    if (filter === 'recorrentes') {
+      return [{
+        title: 'Assinaturas / Recorrências Ativas',
+        dateStr: '',
+        data: recorrentes.map(r => ({
+          id: `rec_${r.id}`,
+          originalId: String(r.id),
+          isRecorrente: true,
+          title: r.descricao || 'Assinatura',
+          type: r.tipo as 'up' | 'down',
+          amount: String(r.valor),
+          category: `Frequência: ${r.frequencia}`, // Usamos o subtítulo para exibir a frequência
+          date: `Próx. cobrança: ${r.proximaData}`,
+          description: `Data de Início: ${r.dataInicio}`
+        })) as any
+      }];
+    }
+    return groupTransactions();
+  };
+
+  const sectionsData = getSectionsData();
 
   // ==========================================
   // FUNÇÕES DO MODAL
@@ -147,7 +168,11 @@ export default function Wallet() {
 
   const handleDeleteTransaction = () => {
     if (selectedTx) {
-      deleteTransaction(selectedTx.id); 
+      if ((selectedTx as any).isRecorrente) {
+        deleteRecorrente((selectedTx as any).originalId);
+      } else {
+        deleteTransaction(selectedTx.id); 
+      }
       closeDetails();
     }
   };
@@ -240,8 +265,8 @@ export default function Wallet() {
         </View>
       )}
 
-      {/* BOTÕES DE FILTRO SIMPLES (Tudo / Entradas / Saídas) */}
-      <View style={styles.filterContainer}>
+      {/* BOTÕES DE FILTRO SIMPLES (Tudo / Entradas / Saídas / Assinaturas) */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 15 }} contentContainerStyle={styles.filterContainer}>
         <TouchableOpacity style={[styles.filterBtn, filter === 'all' && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]} onPress={() => setFilter('all')}>
           <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>Tudo</Text>
         </TouchableOpacity>
@@ -251,7 +276,10 @@ export default function Wallet() {
         <TouchableOpacity style={[styles.filterBtn, filter === 'down' && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]} onPress={() => setFilter('down')}>
           <Text style={[styles.filterText, filter === 'down' && styles.filterTextActive]}>Saídas</Text>
         </TouchableOpacity>
-      </View>
+        <TouchableOpacity style={[styles.filterBtn, filter === 'recorrentes' && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]} onPress={() => setFilter('recorrentes')}>
+          <Text style={[styles.filterText, filter === 'recorrentes' && styles.filterTextActive]}>Assinaturas</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <SectionList
         sections={sectionsData}
@@ -264,7 +292,9 @@ export default function Wallet() {
         ListEmptyComponent={
           <View style={{ alignItems: 'center', marginTop: 40 }}>
             <Ionicons name="search-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma transação encontrada.</Text>
+            <Text style={styles.emptyText}>
+              {filter === 'recorrentes' ? 'Nenhuma assinatura ativa encontrada.' : 'Nenhuma transação encontrada.'}
+            </Text>
           </View>
         }
       />
@@ -306,7 +336,9 @@ export default function Wallet() {
 
                 <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteTransaction}>
                   <Ionicons name="trash-outline" size={20} color="#e74c3c" />
-                  <Text style={styles.deleteBtnText}>Excluir Transação</Text>
+                  <Text style={styles.deleteBtnText}>
+                    {(selectedTx as any).isRecorrente ? 'Cancelar Assinatura' : 'Excluir Transação'}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}

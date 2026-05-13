@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { transacaoService } from '../api/services/transacaoService';
+import { transacaoService, recorrenteService, TransacaoRecorrente } from '../api/services/transacaoService';
 import { useUser } from './UserContext';
 
 export type Transaction = {
@@ -16,6 +16,9 @@ type TransactionContextType = {
   transactions: Transaction[];
   addTransaction: (tx: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  recorrentes: TransacaoRecorrente[];
+  addRecorrente: (tx: TransacaoRecorrente) => Promise<void>;
+  deleteRecorrente: (id: string) => Promise<void>;
 };
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -29,6 +32,7 @@ const formatToBRL = (val: number) => {
 
 export function TransactionProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [recorrentes, setRecorrentes] = useState<TransacaoRecorrente[]>([]);
   const { userId, categories } = useUser();
 
   useEffect(() => {
@@ -61,6 +65,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
         // Ordenar as mais recentes primeiro, se quiser
         setTransactions(mappedTransactions.reverse());
+
+        // Carregar as assinaturas também
+        const apiRecorrentes = await recorrenteService.listarTodos(userId);
+        setRecorrentes(apiRecorrentes);
       } catch (error) {
         console.error('Erro ao carregar transações:', error);
       }
@@ -110,8 +118,44 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addRecorrente = async (tx: TransacaoRecorrente) => {
+    try {
+      const nova = await recorrenteService.criar(tx);
+      setRecorrentes(prev => [...prev, nova]);
+      // Recarrega as transações normais para caso algo tenha gerado na hora
+      if (userId) {
+        const tr = await transacaoService.listarTodos(userId);
+        const mapped = tr.map(t => {
+          const categoryObj = t.categoria ? categories.find(c => c.id === String(t.categoria.id)) : null;
+          return {
+            id: String(t.id),
+            title: t.descricao || (categoryObj ? categoryObj.name : 'Outros'),
+            type: t.tipo as 'up' | 'down',
+            amount: formatToBRL(t.valor),
+            category: categoryObj ? categoryObj.name : 'Outros',
+            date: t.data,
+            description: t.descricao || '',
+          };
+        });
+        setTransactions(mapped.reverse());
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar transação recorrente", error);
+      throw error;
+    }
+  };
+
+  const deleteRecorrente = async (id: string) => {
+    try {
+      await recorrenteService.deletar(Number(id));
+      setRecorrentes(prev => prev.filter(r => String(r.id) !== id));
+    } catch (error) {
+      console.error("Erro ao deletar recorrente", error);
+    }
+  };
+
   return (
-    <TransactionContext.Provider value={{ transactions, addTransaction, deleteTransaction }}>
+    <TransactionContext.Provider value={{ transactions, addTransaction, deleteTransaction, recorrentes, addRecorrente, deleteRecorrente }}>
       {children}
     </TransactionContext.Provider>
   );
