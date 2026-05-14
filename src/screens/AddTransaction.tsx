@@ -126,7 +126,7 @@ export default function AddTransaction() {
 
     Alert.alert(
       'Sucesso!',
-      frequencia === 'NUNCA' ? 'Transação adicionada com sucesso.' : 'Assinatura/Recorrência criada com sucesso.',
+      frequencia === 'NUNCA' ? 'Transação adicionada com sucesso.' : 'Recorrência criada com sucesso.',
       [
         {
           text: 'OK',

@@ -133,13 +133,13 @@ export default function Wallet() {
   const getSectionsData = () => {
     if (filter === 'recorrentes') {
       return [{
-        title: 'Assinaturas / Recorrências Ativas',
+        title: 'Recorrências Ativas',
         dateStr: '',
         data: recorrentes.map(r => ({
           id: `rec_${r.id}`,
           originalId: String(r.id),
           isRecorrente: true,
-          title: r.descricao || 'Assinatura',
+          title: r.descricao || 'Recorrência',
           type: r.tipo as 'up' | 'down',
           amount: String(r.valor),
           category: `Frequência: ${r.frequencia}`, // Usamos o subtítulo para exibir a frequência
@@ -265,7 +265,7 @@ export default function Wallet() {
         </View>
       )}
 
-      {/* BOTÕES DE FILTRO SIMPLES (Tudo / Entradas / Saídas / Assinaturas) */}
+      {/* BOTÕES DE FILTRO SIMPLES (Tudo / Entradas / Saídas / Recorrências) */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 15 }} contentContainerStyle={styles.filterContainer}>
         <TouchableOpacity style={[styles.filterBtn, filter === 'all' && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]} onPress={() => setFilter('all')}>
           <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>Tudo</Text>
@@ -277,7 +277,7 @@ export default function Wallet() {
           <Text style={[styles.filterText, filter === 'down' && styles.filterTextActive]}>Saídas</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.filterBtn, filter === 'recorrentes' && { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }]} onPress={() => setFilter('recorrentes')}>
-          <Text style={[styles.filterText, filter === 'recorrentes' && styles.filterTextActive]}>Assinaturas</Text>
+          <Text style={[styles.filterText, filter === 'recorrentes' && styles.filterTextActive]}>Recorrências</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -293,7 +293,7 @@ export default function Wallet() {
           <View style={{ alignItems: 'center', marginTop: 40 }}>
             <Ionicons name="search-outline" size={48} color="#ccc" />
             <Text style={styles.emptyText}>
-              {filter === 'recorrentes' ? 'Nenhuma assinatura ativa encontrada.' : 'Nenhuma transação encontrada.'}
+              {filter === 'recorrentes' ? 'Nenhuma recorrência ativa encontrada.' : 'Nenhuma transação encontrada.'}
             </Text>
           </View>
         }
@@ -337,7 +337,7 @@ export default function Wallet() {
                 <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteTransaction}>
                   <Ionicons name="trash-outline" size={20} color="#e74c3c" />
                   <Text style={styles.deleteBtnText}>
-                    {(selectedTx as any).isRecorrente ? 'Cancelar Assinatura' : 'Excluir Transação'}
+                    {(selectedTx as any).isRecorrente ? 'Cancelar Recorrência' : 'Excluir Transação'}
                   </Text>
                 </TouchableOpacity>
               </>
